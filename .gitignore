@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+*.blend[0-9]*
+.env
+.env.*
+/upstream/
+/measurements/
+/build/

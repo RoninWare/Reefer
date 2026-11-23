@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Reef Glass · Local preview</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body {margin:0;height:100%;background:#04111a;color:white;font:16px system-ui}
+body {display:grid;place-items:center}
+#display {width:min(100vw,177.78vh)!important;height:auto!important;aspect-ratio:16/9}
+output {position:absolute;bottom:1em;background:#102332;padding:.5em}output:empty {display:none}
+</style>
+<canvas id="display" width="1920" height="1080"></canvas><video id="player" hidden></video>
+<output id="status">Loading reef…</output><script src="/lib/brs.api.js"></script>
+<script>
+async function start() {
+  const status = document.querySelector("output");
+  brs.subscribe("reef", (event, data) => {
+    if (event === "started") status.textContent = "";
+    if (event === "error" || event === "closed") status.textContent = String(data);
+  });
+  const preview720 = new URLSearchParams(location.search).get("resolution") === "720";
+  await brs.initialize({displayMode:preview720 ? "720p" : "1080p"}, {debugToConsole:true,disableKeys:true});
+  const response = await fetch("/reef.zip" + location.search);
+  if (!response.ok) throw Error(await response.text());
+  brs.execute("reef.zip", await response.arrayBuffer(), {muteSound:true,debugOnCrash:false});
+}
+start().catch(error => document.querySelector("output").textContent = error.message);
+</script></html>
