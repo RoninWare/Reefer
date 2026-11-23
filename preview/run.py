@@ -2,7 +2,8 @@
 
 The channel's source is app/ (source, components, manifest, the reef's own pictures and the
 base scene). The art made in authoring/ is laid into the scene here, at package time: the
-placed models, the moving water and anemone, the refined yellow tang and the Christmas set.
+placed models, the moving water and anemone, the peppermint shrimp, the refined yellow tang and
+the Christmas set.
 """
 import argparse
 import json
@@ -21,6 +22,7 @@ ENGINE = HERE / "node_modules/brs-engine"
 APP = ROOT / "app"
 ART = ROOT / "authoring"
 XMAS = ART / "christmas"
+SHRIMP = ART / "shrimp"
 ROUTES = {
     "/": HERE / "index.html",
     "/lib/brs.api.js": ENGINE / "lib/brs.api.js",
@@ -68,6 +70,13 @@ def add_model(scene, contents, placement, folder=ART, xmas=False):
 
 def add_reef_motion(contents):
     contents["images/anemone_current.png"] = (ART / "anemone_current.png").read_bytes()
+
+
+def add_shrimp(scene, contents):
+    """The peppermint shrimp's frames, and the routes they walk."""
+    contents["images/shrimp.png"] = (SHRIMP / "shrimp.png").read_bytes()
+    routes = json.loads((SHRIMP / "routes.json").read_text())["routes"]
+    scene["shrimp"] = {**json.loads((SHRIMP / "shrimp.json").read_text()), "routes": [{"pts": route["pts"], "shadow": route.get("shadow", False)} for route in routes]}
 
 
 def add_tang_turns(scene, contents):
@@ -183,6 +192,7 @@ def package(*, device=False, moving_water=True, preview_720=False, refined_tang=
     for placement in placements:
         add_model(scene, contents, placement)
     add_reef_motion(contents)
+    add_shrimp(scene, contents)
     if moving_water:
         contents["images/surface_ripple.jpg"] = (ART / "surface_ripple.jpg").read_bytes()
     if refined_tang:

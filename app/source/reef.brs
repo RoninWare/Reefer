@@ -2,8 +2,8 @@
 ' The tank: light (rays, day/night), drifting motes, and the frame that ties the wide tank
 ' (pan.brs: background, reef pieces, camera), the fish (fish.brs) and the critters
 ' (critters.brs) together, then Rellie Reef's own additions: the moving water surface
-' (surface.brs), the anemone and star glow (reef_motion.brs) and the Christmas set
-' (christmas.brs, santa_moray.brs). The draw order is in PanFrame.
+' (surface.brs), the anemone (reef_motion.brs), the peppermint shrimp (shrimp.brs) and the
+' Christmas set (christmas.brs, santa_moray.brs). The draw order is in PanFrame.
 
 function ReefInit(cfg as object, opts as object) as object
     s = {
@@ -30,6 +30,7 @@ function ReefInit(cfg as object, opts as object) as object
     ' is left out on its own if it does not fit in graphics memory.
     InitReefMotion(s)
     s.surface = LoadSurface()
+    ShrimpInit(s)
     ChristmasInit(s)
     SantaMorayInit(s)
     LogMemory("loaded")
@@ -53,6 +54,7 @@ sub ReefFrame(s as object, screen as object, t as float, dt as float)
     UpdateLight(s, t)
     FishUpdate(s, t, dt)
     CrittersUpdate(s, t, dt)
+    ShrimpUpdate(s, t, dt)
     ChristmasUpdate(s, t, dt)
     UpdateMotes(s, t, dt)
     PanUpdate(s, t)

@@ -13,6 +13,7 @@ that make them are in the repository's `authoring/` folder.
 | `custom_gifts_hearth.png`, `custom_gifts_tree.png` | original procedural Blender models | `authoring/christmas/create_gifts.py` |
 | `xmas_lights.png` | original procedural Blender model, draped along anchor points on the reef | `authoring/christmas/create_lights.py` |
 | `santa_moray.png` | original procedural Blender model, rebuilt and rendered for every pose | `authoring/christmas/create_santa_moray.py` |
+| `shrimp.png` | original procedural Blender model of a peppermint shrimp, rebuilt and rendered for every frame of its walk and cleaning cycles | `authoring/shrimp/create_shrimp.py` |
 | `xmas_glows.png`, `xmas_bubbles.png`, `star_glow.png` | procedural | `authoring/christmas/create_effects.py`, `authoring/create_reef_motion.py` |
 | `anemone_current.png`, `surface_ripple.jpg` | Reef Glass's `wide_bg*.jpg` and `reef_left.png`, warped into looping frames | `authoring/create_reef_motion.py`, `authoring/create_surface.py` |
 | `santa_cave.png` | Reef Glass's `cave_shade.png` with its left edge faded out | `preview/run.py` |

@@ -63,8 +63,8 @@ def main():
     scaled = {p.removeprefix("pkg:/") for p in scene["pan"]["bg"]}
     scaled.update(piece["img"].removeprefix("pkg:/") for piece in scene["pan"]["pieces"])
     scaled.update(path for path in images if "_atlas" in path)
-    # The Christmas set's two big sheets go through LoadTexture as well.
-    scaled.update(path for path in ("images/santa_moray.png", "images/xmas_lights.png") if path in images)
+    # The shrimp's frames and the Christmas set's two big sheets go through LoadTexture as well.
+    scaled.update(path for path in ("images/shrimp.png", "images/santa_moray.png", "images/xmas_lights.png") if path in images)
     for scale in (1, 1.5):
         total = 0
         for path, size in images.items():

@@ -167,6 +167,7 @@ sub PanFrame(s as object, screen as object, t as float)
     PanDrawPieces(s, screen, s.pan.front)
     if not s.nightLite then ChristmasDraw(s, screen, t)
     CrittersDraw(s, screen, t)
+    ShrimpDraw(s, screen, t)
     while i < n
         FishDraw(s, screen, fishes[i])
         i = i + 1

@@ -35,6 +35,19 @@ Add `?resolution=720` to render the local preview into a 1280×720 surface. The 
 
 To regenerate the yellow tang atlas, retrieve `gen/meshes/yellowtang.ply` and `gen/meshes/yellowtang_full.png` from the primary checkout through Git LFS. Run `python3 authoring/create_tang_turns.py` in a Python environment with ModernGL, Trimesh, NumPy, SciPy, Pillow, OpenCV and imagequant, with an OpenGL context available. The renderer and base artwork come from Reef Glass. [Upstream artwork credits](https://github.com/timsaucer/reef_glass_roku_screensaver/blob/270f1b06c4b5e5f4279dc12815e16121388659c6/CREDITS.md)
 
+## Peppermint shrimp
+
+Four peppermint shrimp walk the sand and the lower rock, stopping to pick the ground clean. They are part of the everyday reef and of the Christmas reef. `authoring/shrimp/create_shrimp.py` builds the animal for each pose and renders a walk cycle and a cleaning cycle into `shrimp.png`, with the frame layout in `shrimp.json`. It uses the shared rig in `authoring/christmas/rig.py`.
+
+```sh
+blender -b --factory-startup --python-exit-code 1 -P authoring/shrimp/create_shrimp.py -- --overwrite
+blender -b --factory-startup --python-exit-code 1 -P authoring/shrimp/create_shrimp.py -- --still clean:0.25
+```
+
+The second command renders one pose at four times the size to `_shrimp_still.png`, for a close look at the model.
+
+`authoring/shrimp/routes.json` lists one route per shrimp: points along the ground in tank pixels. A shrimp turns to the line between points, however steep, and keeps its back on the side that is up where the route is level. A route up the left edge of a reef, listed from the bottom, therefore keeps the animal out over the water, even under an overhang. Routes should stay clear of the Christmas pieces, because the shrimp are drawn over them. The behaviour is in `app/source/shrimp.brs`.
+
 ## Christmas set
 
 `authoring/christmas/` holds a seasonal set: a Christmas tree built of corals in the middle of the tank behind the Rellie Reef stone, a brick fireplace with a burning fire and a bubbling chimney, two piles of gifts, strings of lights on the corals, and a green moray in a Santa hat who replaces the snowflake moray and pops out of the cave with a sack. The set is always packaged, and the season setting switches it on or off when the screensaver starts. Add `?christmas=0` to the preview URL to see the everyday reef.
