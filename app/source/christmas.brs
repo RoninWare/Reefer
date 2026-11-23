@@ -1,6 +1,6 @@
-' Christmas in the reef: a fire in the hearth, bubbles from the chimney and strings of lights
-' on the corals. The fireplace and gifts themselves are ordinary reef pieces (scenes/tank.json);
-' this file animates what moves. Everything here is optional and loads after the reef and the
+' Christmas in the reef: a fire in the hearth, bubbles from the chimney, strings of lights on
+' the corals and on the tree, and the glow of the tree's star. The tree, fireplace and gifts
+' themselves are ordinary reef pieces (scenes/tank.json); this file animates what moves. Everything here is optional and loads after the reef and the
 ' fish: whatever does not fit in graphics memory is simply left out.
 '
 ' Scene config (cfg.christmas, tank coordinates):
@@ -9,7 +9,9 @@
 '   chimney   [x, y]                         mouth of the chimney pot
 '   surface   y where a bubble reaches the top
 '   tiles     [[x, y, atlasX, atlasY, w, h], ...]   wire and bulbs, cut from xmas_lights.png
-'   bulbs     [[x, y, colour], ...]          sorted by x
+'   bulbs     [[x, y, colour], ...]          the reefs' sorted by x; the tree's follow, in the
+'                                            order they hang on its string, as [x, y, colour, group]
+'   star      [x, y]                         centre of the tree's topper
 
 ' A cell of a sheet loaded with LoadTexture: the region, where its pixels really start (dx, dy:
 ' on a 720p Roku the shrunk sheet's edges are rounded) and the scale that restores its size.
@@ -37,7 +39,7 @@ sub ChristmasInit(s as object)
     s.xmas = invalid
     c = s.cfg.christmas
     if c = invalid then return
-    x = { fire: invalid, glows: invalid, bubbles: [], bubbleCells: invalid, tiles: [], bulbs: [], level: [0, 0, 0, 0, 0, 0, 0, 0] }
+    x = { fire: invalid, glows: invalid, star: invalid, bubbles: [], bubbleCells: invalid, tiles: [], bulbs: [], level: [0, 0, 0, 0, 0, 0, 0, 0] }
     x.puff = 2.0 : x.trickle = 0.5 : x.burst = 0
     ' Small sprites first: they cost little and carry most of the life.
     gb = LoadBitmap("pkg:/images/xmas_glows.png")
@@ -49,6 +51,7 @@ sub ChristmasInit(s as object)
             x.glows.Push(r)
         end for
     end if
+    if c.star <> invalid then x.star = LoadBitmap("pkg:/images/star_glow.png")
     bb = LoadBitmap("pkg:/images/xmas_bubbles.png")
     if bb <> invalid and c.chimney <> invalid
         x.bubbleCells = []
@@ -76,13 +79,20 @@ sub ChristmasInit(s as object)
             for each tl in c.tiles
                 x.tiles.Push({ x: tl[0], y: tl[1], w: tl[4], cell: XmasCell(tx, tl[2], tl[3], tl[4], tl[5]) })
             end for
-            ' Without the wire there is nothing for a glow to hang on.
-            k = 0
-            for each b in c.bulbs
-                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: k mod 8 })
-                k = k + 1
-            end for
         end if
+    end if
+    ' A glow needs a bulb under it: the reefs' bulbs are on that sheet of wire, the tree's are
+    ' part of the tree. A bulb's group sets its place in the twinkle and the chase.
+    if c.bulbs <> invalid and x.glows <> invalid
+        k = 0
+        for each b in c.bulbs
+            if b.Count() > 3
+                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: b[3] })
+            else if x.tiles.Count() > 0
+                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: k mod 8 })
+            end if
+            k = k + 1
+        end for
     end if
     s.xmas = x
     LogMemory("christmas")
@@ -152,6 +162,18 @@ sub ChristmasBubble(x as object, c as object)
     end for
 end sub
 
+' The wire and bulbs strung on the reefs' corals. Drawn before the pieces that stand in front
+' of the reefs, so a string runs behind the tree.
+sub ChristmasWires(s as object, screen as object)
+    x = s.xmas
+    if x = invalid then return
+    cam = s.camX
+    for each tl in x.tiles
+        sx = tl.x - cam
+        if sx < 1920 and sx + tl.w > 0 then XmasDrawCell(screen, tl.cell, sx, tl.y, 255)
+    end for
+end sub
+
 ' Drawn over the reef pieces and behind the fish that swim in front of them.
 sub ChristmasDraw(s as object, screen as object, t as float)
     x = s.xmas
@@ -159,11 +181,8 @@ sub ChristmasDraw(s as object, screen as object, t as float)
     c = s.cfg.christmas
     cam = s.camX
     ChristmasFire(s, screen, t, 255)
-    for each tl in x.tiles
-        sx = tl.x - cam
-        if sx < 1920 and sx + tl.w > 0 then XmasDrawCell(screen, tl.cell, sx, tl.y, 255)
-    end for
     ChristmasGlows(s, screen, 1.0)
+    ChristmasStar(s, screen, t, 1.0)
     if x.bubbleCells <> invalid
         top = 60
         if c.surface <> invalid then top = c.surface
@@ -188,6 +207,21 @@ sub ChristmasNight(s as object, screen as object, t as float)
     if s.xmas = invalid or s.night < 0.04 then return
     ChristmasFire(s, screen, t, Int(255 * s.night))
     ChristmasGlows(s, screen, 0.35 + 0.65 * s.night)
+    ChristmasStar(s, screen, t, 0.35 + 0.65 * s.night)
+end sub
+
+' The topper's glow: a slow uneven pulse with a bright glint at its peak.
+sub ChristmasStar(s as object, screen as object, t as float, gain as float)
+    x = s.xmas
+    c = s.cfg.christmas
+    if x.star = invalid then return
+    sx = c.star[0] - s.camX
+    if sx < -110 or sx > 2030 then return
+    beat = 0.5 + 0.5 * Sin(t * 2.6 + 0.8 * Sin(t * 0.74))
+    glint = beat * beat * beat * beat
+    k = 1.2 + 0.4 * glint
+    a = Int((96 + 150 * glint) * gain)
+    screen.DrawScaledObject(sx - 64.5 * k, c.star[1] - 64.5 * k, k, k, x.star, &hFFFFFF00 + a)
 end sub
 
 sub ChristmasFire(s as object, screen as object, t as float, alpha as integer)

@@ -146,8 +146,11 @@ gift(hearth, (-0.66, -0.36), (0.46, 0.40, 0.34), -24, RED_STRIPE, R_GREEN, bow=0
 gift(hearth, (0.50, -0.36), (0.56, 0.42, 0.30), 9, PLAID, R_GOLD, bow=1.0)
 gift(hearth, (1.04, 0.02), (0.34, 0.34, 0.50), 40, PURPLE, R_WHITE, lid=True, bow=0.8)
 
-# Under the candy tree: a smaller, lower group.
+# Beside the tree: a pile stacked up against its foot, tallest at the back.
 tree = cluster("Gifts under the tree")
+gift(tree, (0.02, 0.66), (0.50, 0.46, 0.92), -6, RED_PLAIN, R_GOLD, lid=True, bow=1.1)
+gift(tree, (0.70, 0.52), (0.48, 0.42, 0.50), 20, GREEN_DOT, R_RED, bow=0.9)
+gift(tree, (-0.64, -0.34), (0.30, 0.28, 0.24), 30, PURPLE, R_SILVER, bow=0.75)
 top = gift(tree, (-0.36, 0.20), (0.62, 0.50, 0.40), -16, TEAL, R_WHITE, lid=True, bow=0)
 gift(tree, (-0.36, 0.18), (0.36, 0.32, 0.26), 12, RED_STRIPE, R_GOLD, stand=top + 0.015, bow=0.9)
 gift(tree, (0.34, 0.22), (0.46, 0.44, 0.62), 28, WHITE, R_RED, bow=1.0)
@@ -158,7 +161,7 @@ rig.tank_light(scene)
 cam = rig.camera(scene, elevation=9)
 catcher = rig.ground(scene)
 drifts = {hearth: rig.sand_drift(scene, -1.05, 1.22, -0.58, 0.62, seed=2.0, height=0.026),
-          tree: rig.sand_drift(scene, -0.70, 0.98, -0.50, 0.48, seed=5.0, height=0.026)}
+          tree: rig.sand_drift(scene, -0.84, 1.02, -0.54, 0.92, seed=5.0, height=0.026)}
 bpy.ops.wm.save_as_mainfile(filepath=str(OUT))
 
 for collection, filename in ((hearth, "gifts_hearth.png"), (tree, "gifts_tree.png")):

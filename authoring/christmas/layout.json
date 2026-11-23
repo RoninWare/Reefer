@@ -2,7 +2,8 @@
  "pieces": [
   {"model": "fireplace", "x": 2760, "y": 487},
   {"model": "gifts_hearth", "x": 2556, "y": 884},
-  {"model": "gifts_tree", "x": 692, "y": 902}
+  {"model": "tree", "x": 1348, "y": 88, "front": true, "behind": "rellie_quartz"},
+  {"model": "gifts_tree", "x": 1746, "y": 877, "front": true}
  ],
  "surface": 52
 }

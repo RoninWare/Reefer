@@ -37,11 +37,12 @@ To regenerate the yellow tang atlas, retrieve `gen/meshes/yellowtang.ply` and `g
 
 ## Christmas set
 
-`authoring/christmas/` holds a seasonal set: a brick fireplace with a burning fire and a bubbling chimney, two piles of gifts, strings of lights on the corals, and a green moray in a Santa hat who replaces the snowflake moray and pops out of the cave with a sack. The set is always packaged, and the season setting switches it on or off when the screensaver starts. Add `?christmas=0` to the preview URL to see the everyday reef.
+`authoring/christmas/` holds a seasonal set: a Christmas tree built of corals in the middle of the tank behind the Rellie Reef stone, a brick fireplace with a burning fire and a bubbling chimney, two piles of gifts, strings of lights on the corals, and a green moray in a Santa hat who replaces the snowflake moray and pops out of the cave with a sack. The set is always packaged, and the season setting switches it on or off when the screensaver starts. Add `?christmas=0` to the preview URL to see the everyday reef.
 
 Each model is generated and rendered by its own script, run from the project root. The set was built and tested with Blender 5.2 only.
 
 ```sh
+blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_tree.py -- --overwrite
 blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_fireplace.py -- --overwrite
 blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_gifts.py -- --overwrite
 blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_lights.py -- --overwrite
@@ -49,7 +50,9 @@ blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_
 blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_effects.py
 ```
 
-Without `--overwrite` a script stops when its `.blend` already exists, so hand edits are kept. `rig.py` is the shared camera, tank lighting and mesh helpers. One Blender unit is 100 tank pixels.
+Without `--overwrite` a script stops when its `.blend` already exists, so hand edits are kept. `create_tree.py -- --draft` renders a quick preview to `_tree_draft.png` and leaves the saved model alone. `tree.blend` is about 11 MB and is not tracked in Git; the script rebuilds it.
+
+`layout.json` places the pieces. A piece marked `front` stands before the reefs and is drawn after the anemone and the coral light strings; `behind` names a model it must be drawn before. The tree is `front` and `behind` the stone, and the stone is `front` in `authoring/placements.json` for the same reason. `rig.py` is the shared camera, tank lighting and mesh helpers. One Blender unit is 100 tank pixels.
 
 - **Placement.** `layout.json` gives the upper-left corner of the fireplace and gift sprites, and the height where chimney bubbles vanish at the surface.
 - **Lights.** `strings.json` lists each string's anchor points in tank pixels, where the wire rests on a coral, and the bulb spacing. The wire sags between anchors.

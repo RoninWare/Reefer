@@ -1,6 +1,5 @@
 ' Decorative effects are loaded after the core reef and fish.
 sub InitReefMotion(s as object)
-    s.starGlow = LoadBitmap("pkg:/images/star_glow.png")
     s.anemoneFrames = invalid
     atlas = LoadBitmap("pkg:/images/anemone_current.png")
     if atlas = invalid then return
@@ -27,15 +26,5 @@ sub DrawReefMotion(s as object, screen as object, t as float)
         if blend > 0
             screen.DrawScaledObject(x, 500, scale, scale, s.anemoneFrames[(i + 1) mod 12], &hFFFFFF00 + blend)
         end if
-    end if
-    if s.cfg.candyStar = invalid then return
-    x = s.cfg.candyStar.x - s.camX
-    if s.starGlow <> invalid and x > -65 and x < 1985
-        beat = 0.5 + 0.5 * Sin(t * 2.6 + 0.8 * Sin(t * 0.74))
-        glint = beat * beat * beat * beat
-        scale = 0.69 + 0.26 * glint
-        radius = 64 * scale
-        opacity = Int(86 + 151 * glint)
-        screen.DrawScaledObject(x - radius, s.cfg.candyStar.y - radius, scale, scale, s.starGlow, &hFFFFFF00 + opacity)
     end if
 end sub

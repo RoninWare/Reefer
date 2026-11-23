@@ -2,6 +2,9 @@ node_modules/
 __pycache__/
 *.pyc
 *.blend[0-9]*
+# Rebuilt by create_tree.py; about 11 MB.
+/authoring/christmas/tree.blend
+/authoring/christmas/_tree_draft.png
 .env
 .env.*
 /upstream/

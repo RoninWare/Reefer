@@ -11,7 +11,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | `manifest` | Title and version. |
 | `source/main.brs` | Reads the season setting and applies it to the scene before the tank loads. |
 | `source/reef.brs` | Loads and updates the added modules after the reef and the fish. |
-| `source/pan.brs` | Draws the water surface, the anemone and star glow, and the Christmas set, including a pass over the night tint. |
+| `source/pan.brs` | Draws the water surface, the anemone and the Christmas set, including a pass over the night tint. Pieces marked `front` are drawn after the anemone and the coral light strings. |
 | `source/critters.brs` | The cave's moray is run by `santa_moray.brs`, which falls back to `moray.brs`. |
 | `source/settings.brs` | Adds the season setting. Settings are stored in the `rellieReef` registry section. |
 | `components/SettingsScene.xml`, `components/SettingsScene.brs` | Two lists, lighting and season, with focus moving between them. |
@@ -25,9 +25,9 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | File | Purpose |
 |---|---|
 | `source/surface.brs` | Moving water surface. |
-| `source/reef_motion.brs` | Swaying anemone and the candy tree's star glow. |
+| `source/reef_motion.brs` | Swaying anemone. |
 | `source/season.brs` | Takes the Christmas set out of the scene when it is switched off. |
-| `source/christmas.brs` | Hearth fire, chimney bubbles and the bulbs on the coral light strings. |
+| `source/christmas.brs` | Hearth fire, chimney bubbles, the bulbs on the coral light strings and on the tree, and the glow of the tree's star. |
 | `source/santa_moray.brs` | The green moray in a Santa hat. |
 | `images/custom_*.png`, `images/star_glow.png`, `images/anemone_current.png`, `images/surface_ripple.jpg`, `images/xmas_*.png`, `images/santa_moray.png`, `images/santa_cave.png` | Added art, laid in when the channel is packaged. |
 

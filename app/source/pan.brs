@@ -13,7 +13,7 @@
 
 sub PanInit(s as object)
     pc = s.cfg.pan
-    s.pan = { w: pc.width, period: pc.period, ease: 0.15, far: [], near: [], bands: [] }
+    s.pan = { w: pc.width, period: pc.period, ease: 0.15, far: [], near: [], front: [], bands: [] }
     if pc.ease <> invalid then s.pan.ease = pc.ease
     if s.opts.pan <> invalid and s.opts.pan > 0 then s.pan.period = s.opts.pan
     ' Background: tiles side by side (each at most 2048 px wide, a Roku bitmap's limit),
@@ -58,7 +58,15 @@ sub PanInit(s as object)
             par = 1.0
             if p.par <> invalid then par = p.par
             q = { bmp: b, x: p.x, y: p.y, sc: sc, kx: sc * tx.kx, ky: sc * tx.ky, par: par, w: tx.w * sc, h: tx.h * sc, mir: (p.mir = true), tint: tint, shadow: (p.shadow <> false) }
-            if par < 1 then s.pan.far.Push(q) else s.pan.near.Push(q)
+            ' Pieces marked "front" stand before the reefs: they are drawn after the anemone and
+            ' the strings of lights on the corals, in the order they are listed.
+            if par < 1
+                s.pan.far.Push(q)
+            else if p.front = true
+                s.pan.front.Push(q)
+            else
+                s.pan.near.Push(q)
+            end if
         end if
     end for
     s.camX = 0.0
@@ -155,6 +163,8 @@ sub PanFrame(s as object, screen as object, t as float)
     DrawRays(s, screen, t)
     PanDrawPieces(s, screen, s.pan.near)
     DrawReefMotion(s, screen, t)
+    ChristmasWires(s, screen)
+    PanDrawPieces(s, screen, s.pan.front)
     ChristmasDraw(s, screen, t)
     CrittersDraw(s, screen, t)
     while i < n

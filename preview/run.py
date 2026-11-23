@@ -44,7 +44,13 @@ def add_model(scene, contents, placement, folder=ART, xmas=False):
     piece = {"img": "pkg:/" + asset, "x": x, "y": y, "shadow": False}
     if xmas:
         piece["xmas"] = True        # season.brs drops these when the Christmas reef is off
-    scene["pan"]["pieces"].append(piece)
+    if placement.get("front"):
+        piece["front"] = True       # stands before the reefs: drawn after the anemone and light strings
+    # Pieces are drawn in list order. "behind" names a model this one must be drawn before.
+    pieces = scene["pan"]["pieces"]
+    behind = f'pkg:/images/custom_{placement["behind"]}.png' if "behind" in placement else None
+    at = next((i for i, other in enumerate(pieces) if other["img"] == behind), len(pieces))
+    pieces.insert(at, piece)
     # Preserve the existing occupancy and extend it by one cell around the new silhouette.
     coral = scene["coral"]
     cell = coral["cell"]
@@ -60,12 +66,8 @@ def add_model(scene, contents, placement, folder=ART, xmas=False):
     coral["rows"] = ["".join(row) for row in rows]
 
 
-def add_reef_motion(scene, contents, placements):
-    for filename in ("star_glow.png", "anemone_current.png"):
-        contents[f"images/{filename}"] = (ART / filename).read_bytes()
-    tree = next((piece for piece in placements if piece["model"] == "candy_tree"), None)
-    if tree is not None:
-        scene["candyStar"] = {"x": tree["x"] + 126, "y": tree["y"] + 53}
+def add_reef_motion(contents):
+    contents["images/anemone_current.png"] = (ART / "anemone_current.png").read_bytes()
 
 
 def add_tang_turns(scene, contents):
@@ -78,8 +80,8 @@ def add_tang_turns(scene, contents):
 
 
 def add_christmas(scene, contents):
-    """Fireplace, gifts, coral lights and the Santa moray, from authoring/christmas. They are
-    always packaged; the season setting decides at start-up whether they are used."""
+    """The tree, fireplace, gifts, coral lights and the Santa moray, from authoring/christmas.
+    They are always packaged; the season setting decides at start-up whether they are used."""
     # What the fish steer by when the Christmas reef is switched off.
     scene["coralPlain"] = list(scene["coral"]["rows"])
     layout = json.loads((XMAS / "layout.json").read_text())
@@ -94,10 +96,26 @@ def add_christmas(scene, contents):
 
     fire = dict(fireplace["fire"])
     fire["x"], fire["y"] = placed((fire["x"], fire["y"]))
+
+    # The tree stands in front of the reefs, so a reef string passing behind it loses the glow
+    # of every bulb the tree covers. The tree's own bulbs follow, in the order they hang.
+    spot = next(piece for piece in layout["pieces"] if piece["model"] == "tree")
+    tree = json.loads((XMAS / "tree.json").read_text())
+    with Image.open(XMAS / "tree.png") as image:
+        cover = image.getchannel("A")
+
+    def hidden(x, y):
+        x, y = round(x - spot["x"]), round(y - spot["y"])
+        return 0 <= x < cover.width and 0 <= y < cover.height and cover.getpixel((x, y)) > 127
+
+    bulbs = [bulb for bulb in lights["bulbs"] if not hidden(bulb[0], bulb[1])]
+    bulbs += [[round(spot["x"] + x, 1), round(spot["y"] + y, 1), color, group] for x, y, color, group in tree["bulbs"]]
     scene["christmas"] = {
         "fire": fire, "hearth": placed(fireplace["hearth"]), "chimney": placed(fireplace["chimney"]),
-        "surface": layout["surface"], "tiles": lights["tiles"], "bulbs": lights["bulbs"],
+        "surface": layout["surface"], "tiles": lights["tiles"], "bulbs": bulbs,
+        "star": [round(spot["x"] + tree["star"][0]), round(spot["y"] + tree["star"][1])],
     }
+    contents["images/star_glow.png"] = (ART / "star_glow.png").read_bytes()
     for source, packaged in (("glows", "xmas_glows"), ("bubbles", "xmas_bubbles"), ("fire_frames", "xmas_fire"),
                              ("lights", "xmas_lights"), ("santa_moray", "santa_moray")):
         contents[f"images/{packaged}.png"] = (XMAS / f"{source}.png").read_bytes()
@@ -163,7 +181,7 @@ def package(*, device=False, moving_water=True, preview_720=False, refined_tang=
     placements = json.loads((ART / "placements.json").read_text())
     for placement in placements:
         add_model(scene, contents, placement)
-    add_reef_motion(scene, contents, placements)
+    add_reef_motion(contents)
     if moving_water:
         contents["images/surface_ripple.jpg"] = (ART / "surface_ripple.jpg").read_bytes()
     if refined_tang:
