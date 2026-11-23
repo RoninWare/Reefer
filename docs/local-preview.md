@@ -68,6 +68,8 @@ Add `?cam=1400` to pin the preview camera at a tank x position and `?hour=22` to
 
 On a Roku, **Change screensaver settings** opens two lists. Lighting holds the tank at daytime, dusk or night, or follows the Roku's clock. Season chooses the Christmas reef or the everyday reef. Each choice is saved to the registry at once and shows the next time the screensaver starts. The choices are defined in `app/source/settings.brs` and the screen in `app/components/`.
 
+**Night Lite** dims the reef to blue-black silhouettes. With Christmas reef selected, the coral and tree lights twinkle slowly and the star glows softly. Try `?nightlite=1&cam=740` in the browser. Add `&christmas=0` for the shadow reef without holiday lights.
+
 ## Build the Roku ZIP
 
 From the repository root, with Python and Pillow installed, run:

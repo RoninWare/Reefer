@@ -9,6 +9,7 @@ function ReefInit(cfg as object, opts as object) as object
     s = {
         cfg: cfg
         opts: opts
+        nightLite: (opts.nightLite = true)
         ray: CreateObject("roBitmap", "pkg:/images/ray.png")
         mote: CreateObject("roBitmap", "pkg:/images/mote.png")
         motes: []
@@ -129,6 +130,8 @@ sub UpdateLight(s as object, t as float)
     s.night = 1 - s.dayK
     nc = lt.night.rgb
     s.nightRgba = RGBA(nc[0], nc[1], nc[2], Int(lt.night.alpha * s.night))
+    ' Deep blue-black leaves just enough contrast to read the reef in silhouette.
+    if s.nightLite then s.nightRgba = &h02070DED
     ' Fish slow down at night; this scales every cruise speed.
     na = 0.5
     if lt.nightActivity <> invalid then na = lt.nightActivity

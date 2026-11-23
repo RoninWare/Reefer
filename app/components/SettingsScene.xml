@@ -22,8 +22,8 @@
         <Label translation="[160,250]" text="Lighting in the tank" font="font:MediumBoldSystemFont" color="0xBFD9E2FF" />
         <RadioButtonList id="lighting" translation="[160,310]" itemSize="[1100,72]" itemSpacing="[0,8]"
             vertFocusAnimationStyle="floatingFocus" />
-        <Label translation="[160,680]" text="Season" font="font:MediumBoldSystemFont" color="0xBFD9E2FF" />
-        <RadioButtonList id="season" translation="[160,740]" itemSize="[1100,72]" itemSpacing="[0,8]"
+        <Label translation="[160,740]" text="Season" font="font:MediumBoldSystemFont" color="0xBFD9E2FF" />
+        <RadioButtonList id="season" translation="[160,800]" itemSize="[1100,72]" itemSpacing="[0,8]"
             vertFocusAnimationStyle="floatingFocus" />
     </children>
 </component>

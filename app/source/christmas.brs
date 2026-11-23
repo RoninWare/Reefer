@@ -103,8 +103,14 @@ sub ChristmasUpdate(s as object, t as float, dt as float)
     if x = invalid then return
     c = s.cfg.christmas
 
-    ' Bulb brightness, eight shared levels (eight Sin calls a frame, not one per bulb). The
-    ' string drifts between two shows: a slow uneven twinkle and a chase running along the wire.
+    ' Eight shared brightness levels keep the animation independent of the bulb count.
+    ' Night Lite uses a slower twinkle. The regular show blends twinkle with a chase.
+    if s.nightLite
+        for g = 0 to 7
+            x.level[g] = 0.62 + 0.38 * Sin(t * (0.55 + 0.17 * g) + g * 2.4)
+        end for
+        return
+    end if
     show = 0.5 + 0.5 * Sin(t * 0.085)
     show = show * show * (3 - 2 * show)
     for g = 0 to 7
@@ -205,6 +211,11 @@ end sub
 ' Drawn after the night tint, so the fire and the bulbs shine in a dark tank.
 sub ChristmasNight(s as object, screen as object, t as float)
     if s.xmas = invalid or s.night < 0.04 then return
+    if s.nightLite
+        ChristmasGlows(s, screen, 0.5)
+        ChristmasStar(s, screen, t * 0.5, 0.36)
+        return
+    end if
     ChristmasFire(s, screen, t, Int(255 * s.night))
     ChristmasGlows(s, screen, 0.35 + 0.65 * s.night)
     ChristmasStar(s, screen, t, 0.35 + 0.65 * s.night)

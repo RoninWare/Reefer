@@ -157,7 +157,8 @@ def enable_720p(contents):
 
 def add_preview_entry(contents, opts=None):
     """The preview's Main. Dev options of the renderer: cam pins the camera, hour pins the
-    tank clock, christmas=false runs the everyday reef. With none, the saved settings apply."""
+    tank clock, nightLite enables dim lighting, and christmas=false runs the everyday reef.
+    With none, the saved settings apply."""
     call = "RunScreenSaver()"
     if opts:
         pairs = ", ".join(f"{key}: {value}" for key, value in opts.items())
@@ -207,6 +208,9 @@ def package_upstream(*, preview_720=False):
 
 def preview_options(query):
     opts = {key: float(query[key][0]) for key in ("cam", "hour") if key in query}
+    if query.get("nightlite") == ["1"]:
+        opts["nightLite"] = "true"
+        opts["hour"] = 'LightingHour("nightlite")'
     if query.get("christmas") == ["0"]:
         opts["christmas"] = "false"
     return opts

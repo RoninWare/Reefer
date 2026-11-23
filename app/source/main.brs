@@ -9,8 +9,9 @@
 '   Main                    added only by the local preview (preview/run.py)
 
 sub RunScreenSaver()
-    opts = {}
-    h = LightingHour(LoadLighting())
+    lighting = LoadLighting()
+    opts = { nightLite: (lighting = "nightlite") }
+    h = LightingHour(lighting)
     if h <> invalid then opts.hour = h
     opts.christmas = (LoadSeason() = "christmas")
     RunReef(opts, false)

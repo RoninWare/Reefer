@@ -1,6 +1,6 @@
 ' Rellie Reef: adapted from Reef Glass v1.1.3 (Apache-2.0). What changed is listed in NOTICE.md.
-' Screensaver settings: the tank's lighting, held at daytime (the default), dusk or night, or
-' following the Roku's clock; and the season, the Christmas reef (the default) or the everyday
+' Screensaver settings: the tank's lighting, held at daytime (the default), dusk, night or
+' Night Lite, or following the Roku's clock; and the season, the Christmas reef or the everyday
 ' one. Roku opens RunScreenSaverSettings from the screensaver's "Change screensaver settings"
 ' entry. That context only shows SceneGraph screens, so the UI is
 ' components/SettingsScene.xml; this side loads the saved choices into it and saves each back
@@ -13,6 +13,7 @@ function LightingChoices() as object
         { id: "day", label: "Daytime", hour: 12.0 }
         { id: "dusk", label: "Dusk", hour: 20.7 }
         { id: "night", label: "Night", hour: 23.0 }
+        { id: "nightlite", label: "Night Lite", hour: 23.0 }
     ]
 end function
 
