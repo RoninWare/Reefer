@@ -32,6 +32,8 @@ The inventory records upstream declarations. Future imports should carry the exa
 
 ## Proposed repository structure
 
+This section records the plan at the time of the evaluation. The repository has since taken Reef Glass v1.1.3 in as its own source under `app/`. The current layout is in [local-preview.md](local-preview.md).
+
 The workspace currently holds upstream checkouts, baseline artifacts, the packaging helper and this report. Once the measurements are recorded, use a development worktree branched from the pinned primary commit. This preserves history and the upstream paths used by its tools.
 
 ```text

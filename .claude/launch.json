@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "reef-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["preview/run.py"],
+      "port": 8765
+    }
+  ]
+}

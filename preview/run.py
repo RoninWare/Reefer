@@ -1,4 +1,9 @@
-"""Serve the local BrightScript aquarium preview on loopback."""
+"""Package Rellie Reef and serve its local BrightScript preview on loopback.
+
+The channel's source is app/ (source, components, manifest, the reef's own pictures and the
+base scene). The art made in authoring/ is laid into the scene here, at package time: the
+placed models, the moving water and anemone, the refined yellow tang and the Christmas set.
+"""
 import argparse
 import json
 import mimetypes
@@ -8,12 +13,14 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 ENGINE = HERE / "node_modules/brs-engine"
+APP = ROOT / "app"
 ART = ROOT / "authoring"
+XMAS = ART / "christmas"
 ROUTES = {
     "/": HERE / "index.html",
     "/lib/brs.api.js": ENGINE / "lib/brs.api.js",
@@ -22,20 +29,23 @@ ROUTES = {
 }
 
 
-def add_model(scene, contents, placement):
+def add_model(scene, contents, placement, folder=ART, xmas=False):
     name = placement["model"]
     if not name.isidentifier():
         raise ValueError(f"Invalid model name: {name}")
     asset = f"images/custom_{name}.png"
-    data = (ART / f"{name}.png").read_bytes()
+    data = (folder / f"{name}.png").read_bytes()
     x, y = placement["x"], placement["y"]
     with Image.open(BytesIO(data)) as image:
         if image.mode != "RGBA" or max(image.size) > 2048:
             raise ValueError(f"{name} needs an RGBA sprite no larger than 2048 px")
         alpha = image.getchannel("A")
     contents[asset] = data
-    scene["pan"]["pieces"].append({"img": "pkg:/" + asset, "x": x, "y": y, "shadow": False})
-    # Preserve baseline occupancy and extend it by one cell around the new silhouette.
+    piece = {"img": "pkg:/" + asset, "x": x, "y": y, "shadow": False}
+    if xmas:
+        piece["xmas"] = True        # season.brs drops these when the Christmas reef is off
+    scene["pan"]["pieces"].append(piece)
+    # Preserve the existing occupancy and extend it by one cell around the new silhouette.
     coral = scene["coral"]
     cell = coral["cell"]
     rows = [list(row) for row in coral["rows"]]
@@ -50,56 +60,12 @@ def add_model(scene, contents, placement):
     coral["rows"] = ["".join(row) for row in rows]
 
 
-def insert_after(contents, module, anchor, addition):
-    path = f"source/{module}.brs"
-    if contents[path].count(anchor) != 1:
-        raise ValueError(f"Unexpected integration point in {path}")
-    contents[path] = contents[path].replace(anchor, anchor + b"\n" + addition)
-
-
 def add_reef_motion(scene, contents, placements):
-    contents["source/reef_motion.brs"] = (ROOT / "runtime/reef_motion.brs").read_bytes()
     for filename in ("star_glow.png", "anemone_current.png"):
         contents[f"images/{filename}"] = (ART / filename).read_bytes()
     tree = next((piece for piece in placements if piece["model"] == "candy_tree"), None)
     if tree is not None:
         scene["candyStar"] = {"x": tree["x"] + 126, "y": tree["y"] + 53}
-    insert_after(contents, "reef", b"    FishMirrorMode(s)", b"    InitReefMotion(s)")
-    insert_after(contents, "pan", b"    PanDrawPieces(s, screen, s.pan.near)", b"    DrawReefMotion(s, screen, t)")
-
-
-def add_surface(contents):
-    contents["source/surface.brs"] = (ROOT / "runtime/surface.brs").read_bytes()
-    contents["images/surface_ripple.jpg"] = (ART / "surface_ripple.jpg").read_bytes()
-    for name, anchor, replacement in [
-        ("reef", b'    LogMemory("loaded")', b'    s.surface = LoadSurface()\n    LogMemory("loaded")'),
-        ("pan", b"    PanDrawPieces(s, screen, s.pan.far)", b"    DrawSurface(s, screen, t)\n    PanDrawPieces(s, screen, s.pan.far)"),
-    ]:
-        path = f"source/{name}.brs"
-        if contents[path].count(anchor) != 1:
-            raise ValueError(f"Unexpected water surface integration point in {path}")
-        contents[path] = contents[path].replace(anchor, replacement)
-
-
-def enable_720p(contents):
-    contents["source/draw720.brs"] = (HERE / "draw720.brs").read_bytes()
-    contents["manifest"] = contents["manifest"].replace(b"ui_resolutions=fhd", b"ui_resolutions=hd")
-    draw_calls = {
-        b"DrawObject": b"PreviewObject",
-        b"DrawScaledObject": b"PreviewScaled",
-        b"DrawRotatedObject": b"PreviewRotated",
-        b"DrawTransformedObject": b"PreviewTransformed",
-        b"DrawRect": b"PreviewRect",
-    }
-    for module in ("main", "pan", "reef", "fish", "moray", "critters", "surface", "reef_motion"):
-        path = f"source/{module}.brs"
-        if path in contents:
-            for method, wrapper in draw_calls.items():
-                contents[path] = contents[path].replace(b"screen." + method + b"(", wrapper + b"(screen, ")
-    contents["source/main.brs"] = contents["source/main.brs"].replace(
-        b'CreateObject("roScreen", true, 1920, 1080)',
-        b'CreateObject("roScreen", true, 1280, 720)',
-    )
 
 
 def add_tang_turns(scene, contents):
@@ -111,38 +77,121 @@ def add_tang_turns(scene, contents):
         contents[f"images/{filename}"] = (directory / filename).read_bytes()
 
 
-def package(include_models, *, device=False, moving_water=True, preview_720=False, refined_tang=True):
-    with ZipFile(ROOT / "baseline/reefglass-1.1.3.zip") as source:
-        contents = {n: source.read(n) for n in source.namelist()}
-    if device:
-        contents["manifest"] = contents["manifest"].replace(b"screensaver_title=Reef Glass", b"screensaver_title=Rellie Reef")
-    else:
-        contents["source/preview.brs"] = b"sub Main()\n    RunScreenSaver()\nend sub\n"
-    if include_models and moving_water:
-        add_surface(contents)
-    if include_models:
-        scene = json.loads(contents["scenes/tank.json"])
-        placements = json.loads((ART / "placements.json").read_text())
-        for placement in placements:
-            add_model(scene, contents, placement)
-        add_reef_motion(scene, contents, placements)
-        if refined_tang:
-            add_tang_turns(scene, contents)
-        contents["scenes/tank.json"] = json.dumps(scene).encode()
+def add_christmas(scene, contents):
+    """Fireplace, gifts, coral lights and the Santa moray, from authoring/christmas. They are
+    always packaged; the season setting decides at start-up whether they are used."""
+    # What the fish steer by when the Christmas reef is switched off.
+    scene["coralPlain"] = list(scene["coral"]["rows"])
+    layout = json.loads((XMAS / "layout.json").read_text())
+    for placement in layout["pieces"]:
+        add_model(scene, contents, placement, XMAS, xmas=True)
+    hearth = next(piece for piece in layout["pieces"] if piece["model"] == "fireplace")
+    fireplace = json.loads((XMAS / "fireplace.json").read_text())
+    lights = json.loads((XMAS / "lights.json").read_text())
+
+    def placed(point):
+        return [round(hearth["x"] + point[0]), round(hearth["y"] + point[1])]
+
+    fire = dict(fireplace["fire"])
+    fire["x"], fire["y"] = placed((fire["x"], fire["y"]))
+    scene["christmas"] = {
+        "fire": fire, "hearth": placed(fireplace["hearth"]), "chimney": placed(fireplace["chimney"]),
+        "surface": layout["surface"], "tiles": lights["tiles"], "bulbs": lights["bulbs"],
+    }
+    for source, packaged in (("glows", "xmas_glows"), ("bubbles", "xmas_bubbles"), ("fire_frames", "xmas_fire"),
+                             ("lights", "xmas_lights"), ("santa_moray", "santa_moray")):
+        contents[f"images/{packaged}.png"] = (XMAS / f"{source}.png").read_bytes()
+
+    # The Santa moray reaches out past the cave mouth, so the shade that hides his body must
+    # leave the mouth clear: keep the back wall and shadow, fading in from the left.
+    moray = json.loads((XMAS / "santa_moray.json").read_text())
+    moray["shade"] = scene["moray"]["shade"]
+    scene["santaMoray"] = moray
+    with Image.open(BytesIO(contents["images/cave_shade.png"])) as shade:
+        shade = shade.convert("RGBA")
+    ramp = Image.new("L", shade.size)
+    ramp.putdata([min(255, max(0, round((x - 86) * 255 / 34))) for _ in range(shade.height) for x in range(shade.width)])
+    shade.putalpha(ImageChops.multiply(shade.getchannel("A"), ramp))
+    out = BytesIO()
+    shade.save(out, "PNG")
+    contents["images/santa_cave.png"] = out.getvalue()
+
+
+def enable_720p(contents):
+    """Preview only: draw into a 1280x720 screen through wrappers that scale every call."""
+    contents["source/draw720.brs"] = (HERE / "draw720.brs").read_bytes()
+    contents["manifest"] = contents["manifest"].replace(b"ui_resolutions=fhd", b"ui_resolutions=hd")
+    draw_calls = {
+        b"DrawObject": b"PreviewObject",
+        b"DrawScaledObject": b"PreviewScaled",
+        b"DrawRotatedObject": b"PreviewRotated",
+        b"DrawTransformedObject": b"PreviewTransformed",
+        b"DrawRect": b"PreviewRect",
+    }
+    for path in [p for p in contents if p.startswith("source/") and p != "source/draw720.brs"]:
+        for method, wrapper in draw_calls.items():
+            contents[path] = contents[path].replace(b"screen." + method + b"(", wrapper + b"(screen, ")
+    contents["source/main.brs"] = contents["source/main.brs"].replace(
+        b'CreateObject("roScreen", true, 1920, 1080)',
+        b'CreateObject("roScreen", true, 1280, 720)',
+    )
+
+
+def add_preview_entry(contents, opts=None):
+    """The preview's Main. Dev options of the renderer: cam pins the camera, hour pins the
+    tank clock, christmas=false runs the everyday reef. With none, the saved settings apply."""
+    call = "RunScreenSaver()"
+    if opts:
+        pairs = ", ".join(f"{key}: {value}" for key, value in opts.items())
+        call = f"RunReef({{ {pairs} }}, false)"
+    contents["source/preview.brs"] = f"sub Main()\n    {call}\nend sub\n".encode()
+
+
+def archive(contents):
+    out = BytesIO()
+    with ZipFile(out, "w", ZIP_DEFLATED) as package:
+        for name, data in contents.items():
+            package.writestr(ZipInfo(name), data, compress_type=ZIP_DEFLATED)
+    return out.getvalue()
+
+
+def package(*, device=False, moving_water=True, preview_720=False, refined_tang=True, opts=None):
+    """The channel ZIP: app/ with the authored art laid into its scene. For the preview a Main
+    entry point is added (and, on request, the 720p drawing wrappers)."""
+    contents = {path.relative_to(APP).as_posix(): path.read_bytes() for path in sorted(APP.rglob("*")) if path.is_file()}
+    scene = json.loads(contents["scenes/tank.json"])
+    placements = json.loads((ART / "placements.json").read_text())
+    for placement in placements:
+        add_model(scene, contents, placement)
+    add_reef_motion(scene, contents, placements)
+    if moving_water:
+        contents["images/surface_ripple.jpg"] = (ART / "surface_ripple.jpg").read_bytes()
+    if refined_tang:
+        add_tang_turns(scene, contents)
+    add_christmas(scene, contents)
+    contents["scenes/tank.json"] = json.dumps(scene, separators=(",", ":")).encode()
     if not device:
+        add_preview_entry(contents, opts)
         if preview_720:
             enable_720p(contents)
-        contents["source/main.brs"] = contents["source/main.brs"].replace(
-            b"    screen.SetMessagePort(port)",
-            b'    print "PREVIEW render target "; screen.GetWidth(); " x "; screen.GetHeight()\n'
-            b"    screen.SetMessagePort(port)",
-            1,
-        )
-    out = BytesIO()
-    with ZipFile(out, "w", ZIP_DEFLATED) as archive:
-        for name, data in contents.items():
-            archive.writestr(ZipInfo(name), data, compress_type=ZIP_DEFLATED)
-    return out.getvalue()
+    return archive(contents)
+
+
+def package_upstream(*, preview_720=False):
+    """Reef Glass v1.1.3 as released, for side-by-side comparison in the preview."""
+    with ZipFile(ROOT / "baseline/reefglass-1.1.3.zip") as source:
+        contents = {name: source.read(name) for name in source.namelist()}
+    add_preview_entry(contents)
+    if preview_720:
+        enable_720p(contents)
+    return archive(contents)
+
+
+def preview_options(query):
+    opts = {key: float(query[key][0]) for key in ("cam", "hour") if key in query}
+    if query.get("christmas") == ["0"]:
+        opts["christmas"] = "false"
+    return opts
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -151,12 +200,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path == "/reef.zip":
                 query = parse_qs(url.query)
-                data = package(
-                    query.get("baseline") != ["1"],
-                    moving_water=query.get("water") != ["still"],
-                    preview_720=query.get("resolution") == ["720"],
-                    refined_tang=query.get("turns") != ["original"],
-                )
+                preview_720 = query.get("resolution") == ["720"]
+                if query.get("baseline") == ["1"]:
+                    data = package_upstream(preview_720=preview_720)
+                else:
+                    data = package(
+                        moving_water=query.get("water") != ["still"],
+                        preview_720=preview_720,
+                        refined_tang=query.get("turns") != ["original"],
+                        opts=preview_options(query),
+                    )
                 mime = "application/zip"
             elif url.path in ROUTES:
                 path = ROUTES[url.path]
@@ -182,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument("--device-zip", type=Path, help="Build the standalone screensaver and exit")
     args = parser.parse_args()
     if args.device_zip:
-        args.device_zip.write_bytes(package(True, device=True))
+        args.device_zip.write_bytes(package(device=True))
         raise SystemExit(0)
     port = args.port
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)

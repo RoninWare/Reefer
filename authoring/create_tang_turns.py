@@ -3,15 +3,13 @@ import json
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM = ROOT / "upstream/reef_glass_roku_screensaver"
 sys.path.insert(0, str(UPSTREAM / "tools"))
 import fishviews
 
-with ZipFile(ROOT / "baseline/reefglass-1.1.3.zip") as archive:
-    scene = json.loads(archive.read("scenes/tank.json"))
+scene = json.loads((ROOT / "app/scenes/tank.json").read_text())
 species = scene["species"]["yellowtang"]
 headings = species["views"]["deg"]
 fishviews.ANGLES = sorted(headings + [

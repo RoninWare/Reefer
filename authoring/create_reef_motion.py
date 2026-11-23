@@ -1,7 +1,5 @@
 """Bake the anemone's current cycle and a small golden star glow."""
-from io import BytesIO
 from pathlib import Path
-from zipfile import ZipFile
 
 import numpy as np
 from PIL import Image
@@ -13,9 +11,8 @@ ART = ROOT / "authoring"
 
 def write_anemone():
     x, y, width, height = 1000, 500, 480, 380
-    with ZipFile(ROOT / "baseline/reefglass-1.1.3.zip") as source:
-        bg = Image.open(BytesIO(source.read("images/wide_bg0.jpg"))).convert("RGBA")
-        reef = Image.open(BytesIO(source.read("images/reef_left.png"))).convert("RGBA")
+    bg = Image.open(ROOT / "app/images/wide_bg0.jpg").convert("RGBA")
+    reef = Image.open(ROOT / "app/images/reef_left.png").convert("RGBA")
     bg.alpha_composite(reef, (499, 62))
     rgba = np.asarray(bg.crop((x, y, x+width, y+height)), dtype=float)
     yy, xx = np.mgrid[:height, :width]

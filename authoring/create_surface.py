@@ -1,7 +1,5 @@
-"""Bake a seamless ripple cycle from the pinned tank's own waterline."""
-from io import BytesIO
+"""Bake a seamless ripple cycle from the tank's own waterline."""
 from pathlib import Path
-from zipfile import ZipFile
 
 import numpy as np
 from PIL import Image
@@ -9,11 +7,10 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 HEIGHT = 96
 FRAMES = 24
-with ZipFile(ROOT / "baseline/reefglass-1.1.3.zip") as package:
-    tiles = []
-    for i in (0, 1):
-        image = Image.open(BytesIO(package.read(f"images/wide_bg{i}.jpg")))
-        tiles.append(np.array(image.crop((0, 0, image.width, HEIGHT+5))))
+tiles = []
+for i in (0, 1):
+    image = Image.open(ROOT / f"app/images/wide_bg{i}.jpg")
+    tiles.append(np.array(image.crop((0, 0, image.width, HEIGHT+5))))
 water = np.concatenate(tiles, axis=1)
 width = water.shape[1]
 atlas = Image.new("RGB", (width//2, HEIGHT//2 * FRAMES))

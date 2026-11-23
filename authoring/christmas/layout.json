@@ -1,0 +1,8 @@
+{
+ "pieces": [
+  {"model": "fireplace", "x": 2760, "y": 487},
+  {"model": "gifts_hearth", "x": 2556, "y": 884},
+  {"model": "gifts_tree", "x": 692, "y": 902}
+ ],
+ "surface": 52
+}
