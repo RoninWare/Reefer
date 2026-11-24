@@ -1,0 +1,28 @@
+{
+ "structures": ["arch", "bommie", "grotto"],
+ "stone": [1057, 900],
+ "christmas": {
+  "tree": [1013, 101],
+  "gifts_tree": [1440, 905],
+  "fireplace": [3040, 490],
+  "gifts_hearth": [2790, 905]
+ },
+ "roam": {"backFloor": 690},
+ "rays": [[420, 0.7], [1050, 1.0], [1500, 0.8], [2300, 0.9], [2900, 0.6]],
+ "shrimp": [
+  {"name": "sand in front of the arch", "shadow": true, "pts": [[470, 1024], [580, 1032], [700, 1026], [830, 1036], [950, 1030], [1040, 1024]]},
+  {"name": "sand between the arch and the mound", "shadow": true, "pts": [[1680, 1034], [1800, 1040], [1920, 1034], [2040, 1042], [2160, 1038], [2300, 1042], [2450, 1038]]},
+  {"name": "up the face of the mound", "pts": [[2700, 986], [2682, 940], [2652, 882], [2612, 824], [2562, 772], [2502, 738], [2442, 714]]},
+  {"name": "sand at the right end", "shadow": true, "pts": [[3110, 1022], [3200, 1030], [3290, 1024], [3372, 1030]]}
+ ],
+ "haunt": [2830, 760],
+ "haze": {"rgb": [60, 100, 165], "far": 0.6},
+ "fish": {
+  "tang": {"count": 2, "speed": 75, "beat": 2.0, "big": true, "turn": 3.0, "near": 120, "sideLen": 190},
+  "surgeon": {"count": 2, "speed": 66, "beat": 2.2, "big": true, "turn": 3.2, "near": 120, "sideLen": 185},
+  "mandarin": {"count": 2, "speed": 26, "beat": 3.0, "turn": 5.0, "near": 60, "sideLen": 108, "shuffle": true, "visit": 0.3, "follow": "pair", "homes": [[2830, 760, 0.955], [2830, 760, 0.955]]},
+  "lionfish": {"count": 1, "speed": 22, "beat": 2.4, "turn": 2.8, "near": 100, "sideLen": 190},
+  "damsel": {"count": 6, "speed": 42, "beat": 3.5, "turn": 6.0, "near": 60, "sideLen": 82, "follow": "school", "visit": 0.3, "visitAt": [2600, 360, 0.88], "shuffle": true},
+  "dottyback": {"count": 2, "speed": 32, "beat": 3.0, "turn": 5.0, "near": 60, "sideLen": 96, "visit": 0.35, "shuffle": true, "homes": [[930, 580, 0.9], [2330, 740, 0.9]]}
+ }
+}

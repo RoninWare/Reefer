@@ -23,4 +23,21 @@ async function start() {
   brs.execute("reef.zip", await response.arrayBuffer(), {muteSound:true,debugOnCrash:false});
 }
 start().catch(error => document.querySelector("output").textContent = error.message);
+// capture("name") in the console saves the display, full size, as build/captures/name.png.
+// The display is blank between the simulator's frames, so copy it until a drawn one is caught.
+async function capture(name) {
+  const display = document.getElementById("display"), copy = document.createElement("canvas");
+  copy.width = display.width; copy.height = display.height;
+  const pen = copy.getContext("2d", {willReadFrequently: true});
+  for (let tries = 0; tries < 400; tries++) {
+    await new Promise(next => setTimeout(next, 15));
+    pen.drawImage(display, 0, 0);
+    const strip = pen.getImageData(0, copy.height >> 1, copy.width, 1).data;
+    if (strip.some((value, i) => i % 4 < 3 && value > 24)) {
+      const picture = await new Promise(done => copy.toBlob(done));
+      return (await fetch("/capture?name=" + name, {method: "POST", body: picture})).status;
+    }
+  }
+  return "the display stayed blank";
+}
 </script></html>

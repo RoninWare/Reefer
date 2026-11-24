@@ -1,14 +1,30 @@
-"""Build the original engraved quartz floor stone in Blender."""
+"""Build the engraved quartz floor stone in Blender.
+
+    blender -b --factory-startup --python-exit-code 1 -P authoring/create_quartz.py -- market/art/holiday_quartz.blend "Holiday Reef"
+    blender -b market/art/holiday_quartz.blend -P authoring/export_sprite.py
+
+The stone is the same for every inscription. With no arguments it is Rellie Reef's own
+(authoring/rellie_quartz.blend); the two arguments are where to save another and what it reads.
+"""
 import math
 import random
+import sys
 from pathlib import Path
 
 import bpy
 from mathutils import Vector
 
-out = Path(__file__).resolve().with_name("rellie_quartz.blend")
+args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+out = Path(args[0]).resolve() if args else Path(__file__).resolve().with_name("rellie_quartz.blend")
+inscription = args[1] if len(args) > 1 else "Rellie Reef"
+name = out.stem
 if out.exists():
     raise FileExistsError(out)
+# DejaVu Serif Bold, wherever this system keeps it.
+font = next((path for path in (Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"), Path("C:/Windows/Fonts/DejaVuSerif-Bold.ttf"))
+             if path.exists()), None)
+if font is None:
+    raise FileNotFoundError("DejaVuSerif-Bold.ttf")
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete()
 scene = bpy.context.scene
@@ -71,7 +87,7 @@ for ring in range(3):
         b = ring*n+(i+1)%n
         faces.extend([(a,b,b+n),(a,b+n,a+n)])
 faces.append(tuple(range(3*n,4*n)))
-stone = mesh("Rellie Reef · cut quartz", verts, faces)
+stone = mesh(inscription + " · cut quartz", verts, faces)
 for mat in (polish,fracture,cut):
     stone.data.materials.append(mat)
 for face in list(stone.data.polygons)[1:]:
@@ -81,11 +97,10 @@ for face in list(stone.data.polygons)[1:]:
 # the excavated floor and walls. The original cut remains editable as a modifier.
 bpy.ops.object.text_add(rotation=(math.pi/2,0,0))
 letters = bpy.context.object
-letters.name = "Engraving tool · Rellie Reef"
-letters.data.body = "Rellie Reef"
+letters.name = "Engraving tool · " + inscription
+letters.data.body = inscription
 letters.data.align_x = "CENTER"
 letters.data.align_y = "CENTER"
-font = Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf")
 letters.data.font = bpy.data.fonts.load(str(font))
 letters.data.resolution_u = 12
 letters.data.extrude = 0.19
@@ -152,7 +167,7 @@ scene.render.resolution_x, scene.render.resolution_y=376,176
 scene.render.resolution_percentage=100
 scene.render.image_settings.color_mode="RGBA"
 scene.render.film_transparent=True
-scene.render.filepath="//rellie_quartz.png"
+scene.render.filepath=f"//{name}.png"
 for area in bpy.context.screen.areas:
     if area.type=="VIEW_3D":
         area.spaces.active.region_3d.view_perspective="CAMERA"

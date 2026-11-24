@@ -14,6 +14,7 @@ Rellie Reef began as Reef Glass v1.1.3. That release now lives in this repositor
 | `authoring/` | Blender sources, generator scripts and rendered sprites for the art added since, with their placements. |
 | `preview/run.py` | Packages `app/` and lays the authored art into its scene, for the preview and for the device ZIP. |
 | `tools/` | `check_scene.py` checks a packaged ZIP, `make_branding.py` renders the splash screens and icons, and `build_baseline.py` rebuilds the Reef Glass reference ZIP. |
+| `market/` | The store edition, "Seasons Reef tank": its own copy of the channel, slimmed to Roku's 4 MB limit, with its own build. See `market/README.md`. Nothing in it is used to build Rellie Reef. |
 | `baseline/` | Reef Glass v1.1.3 as released, kept as the reference for device measurements and for `?baseline=1`. Nothing is built from it. |
 
 Edit BrightScript in `app/source/` and reload the preview. The draw order is in `PanFrame` in `pan.brs`, and what loads when is in `ReefInit` in `reef.brs`.
@@ -75,7 +76,7 @@ Without `--overwrite` a script stops when its `.blend` already exists, so hand e
 
 When the set is switched off, `app/source/season.brs` removes it from the scene before anything loads: the fireplace and gift pieces are dropped, the fish steer by the coral map made without them, and the snowflake moray keeps the cave. None of the set's pictures are loaded.
 
-Add `?cam=1400` to pin the preview camera at a tank x position and `?hour=22` to pin the tank clock. At night the bulbs and the fire are drawn over the night tint.
+Add `?cam=1400` to pin the preview camera at a tank x position and `?hour=22` to pin the tank clock. `?market=1` runs the store edition from `market/`. To save a frame at full size, run `capture("name")` in the browser console: it is written to `build/captures/name.png`. At night the bulbs and the fire are drawn over the night tint.
 
 ## Settings
 

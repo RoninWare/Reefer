@@ -6,6 +6,7 @@ placed models, the moving water and anemone, the peppermint shrimp, the refined 
 the Christmas set.
 """
 import argparse
+import importlib.util
 import json
 import mimetypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -216,6 +217,18 @@ def package_upstream(*, preview_720=False):
     return archive(contents)
 
 
+def package_market(*, preview_720=False, opts=None):
+    """The store edition, which market/build.py builds from market/app, with the preview's Main."""
+    spec = importlib.util.spec_from_file_location("market_build", ROOT / "market/build.py")
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    contents = build.contents()
+    add_preview_entry(contents, opts)
+    if preview_720:
+        enable_720p(contents)
+    return archive(contents)
+
+
 def preview_options(query):
     opts = {key: float(query[key][0]) for key in ("cam", "hour") if key in query}
     if query.get("nightlite") == ["1"]:
@@ -235,6 +248,8 @@ class Handler(BaseHTTPRequestHandler):
                 preview_720 = query.get("resolution") == ["720"]
                 if query.get("baseline") == ["1"]:
                     data = package_upstream(preview_720=preview_720)
+                elif query.get("market") == ["1"]:
+                    data = package_market(preview_720=preview_720, opts=preview_options(query))
                 else:
                     data = package(
                         moving_water=query.get("water") != ["still"],
@@ -259,6 +274,20 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def do_POST(self):
+        """Saves a picture of the display that the preview page sends (capture() in its console)
+        as build/captures/<name>.png."""
+        url = urlsplit(self.path)
+        name = parse_qs(url.query).get("name", ["frame"])[0]
+        length = int(self.headers.get("Content-Length") or 0)
+        if url.path != "/capture" or not name.isidentifier() or not 0 < length <= 16 * 2 ** 20:
+            return self.send_error(400)
+        folder = ROOT / "build/captures"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{name}.png").write_bytes(self.rfile.read(length))
+        self.send_response(204)
+        self.end_headers()
 
 
 if __name__ == "__main__":
