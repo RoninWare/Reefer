@@ -46,6 +46,18 @@ python3 tools/check_scene.py build/seasons-reef-tank.zip
 2. From a computer on the same network, open that address and sign in as `rokudev` with the device’s developer password. Upload and install the ZIP for the edition you want to test. Each Roku has one sideload slot, so the upload replaces the previous sideloaded app. [Roku developer setup](https://developer.roku.com/dev/docs/developer-setup)
 3. On the TV, open **Settings → Theme → Screensavers**, choose the installed edition, and preview or set it as active. [Roku screensaver guide](https://developer.roku.com/dev/docs/screensavers)
 
+### Reef Loader for local devices
+
+Reef Loader packages **Rellie Reef** and **Seasons Reef tank** in one developer ZIP. It uses the Rellie Reef name on Roku. Install it once, then open **Settings → Theme → Screensavers → Rellie Reef → Change screensaver settings → Tank**. Choose a tank with **OK**, press **Back**, and open **Preview** to see the new selection. The choice persists on the device, and Lighting and Season apply to either tank.
+
+```sh
+mkdir -p build
+python3 preview/run.py --reef-loader --device-zip build/reef-loader.zip
+python3 tools/check_scene.py build/reef-loader.zip
+```
+
+This build uses Pillow, imagequant, and zopfli. It includes both tanks on disk and loads the selected tank’s textures at runtime. Use the standalone Seasons build for Roku Store packaging. With the local preview server running, try [Rellie in Reef Loader](http://127.0.0.1:8765/?loader=1&tank=tank) and [Seasons in Reef Loader](http://127.0.0.1:8765/?loader=1&tank=seasons).
+
 ## Work on the reef
 
 - [`app/`](app/) contains Rellie Reef’s manifest, BrightScript, SceneGraph settings, and base scene.

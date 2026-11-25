@@ -1,6 +1,7 @@
 """Check packaged fish atlas geometry and estimate image storage. Requires Pillow."""
 import argparse
 import json
+import re
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
@@ -12,8 +13,8 @@ def texture_size(size, scale):
     return tuple(int(side / scale + 0.5) for side in size)
 
 
-def check_views(name, config, images):
-    pages = [images[f"images/{name}_atlas{i}.png"] for i in range(config["pages"])]
+def check_views(name, config, images, prefix):
+    pages = [images[f"{prefix}{name}_atlas{i}.png"] for i in range(config["pages"])]
     angles = config["deg"]
     if len(config["v"]) != len(angles) or angles != sorted(set(angles)):
         raise ValueError(f"{name}: inconsistent headings")
@@ -42,39 +43,55 @@ def check_views(name, config, images):
     return len(poses) * 2
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("zip", type=Path)
-    with ZipFile(parser.parse_args().zip) as archive:
-        scene = json.loads(archive.read("scenes/tank.json"))
-        images = {}
-        for path in archive.namelist():
-            if path.startswith("images/") and not path.endswith("/"):
-                with Image.open(BytesIO(archive.read(path))) as image:
-                    image.load()
-                    images[path] = image.size
+def check_scene(scene, images, prefix):
+    for reference in re.findall(r'"pkg:/([^"]+)"', json.dumps(scene)):
+        if reference not in images:
+            raise ValueError(f"Missing scene image: {reference}")
     count = 0
     for name, species in scene["species"].items():
-        count += check_views(name, species["views"], images)
+        count += check_views(name, species["views"], images, prefix)
         if "ball" in species:
-            count += check_views(name + "_ball", species["ball"], images)
+            count += check_views(name + "_ball", species["ball"], images, prefix)
     print(f"{count} body and tail regions pass at both texture scales.")
     # Only pages, background tiles and reef pieces use LoadTexture in this baseline.
     scaled = {p.removeprefix("pkg:/") for p in scene["pan"]["bg"]}
     scaled.update(piece["img"].removeprefix("pkg:/") for piece in scene["pan"]["pieces"])
     scaled.update(path for path in images if "_atlas" in path)
     # The shrimp's frames and the Christmas set's two big sheets go through LoadTexture as well.
-    scaled.update(path for path in ("images/shrimp.png", "images/santa_moray.png", "images/xmas_lights.png") if path in images)
+    scaled.update(path for path in (prefix + name for name in ("shrimp.png", "santa_moray.png", "xmas_lights.png")) if path in images)
     # So do the store edition's glow pictures.
     scaled.update(path for path in images if "_glow" in path)
     for scale in (1, 1.5):
         total = 0
         for path, size in images.items():
-            if path.startswith(("images/icon_", "images/splash_")):
+            if path.startswith((prefix + "icon_", prefix + "splash_")):
                 continue
             w, h = texture_size(size, scale if path in scaled else 1)
             total += w * h * 4
         print(f"Scale {scale}: {total / 2**20:.2f} MiB of scene image pixels at 4 bytes/pixel.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("zip", type=Path)
+    with ZipFile(parser.parse_args().zip) as archive:
+        images = {}
+        for path in archive.namelist():
+            if path.startswith("images/") and not path.endswith("/"):
+                with Image.open(BytesIO(archive.read(path))) as image:
+                    image.load()
+                    images[path] = image.size
+        for name, prefix in (("tank", "images/"), ("seasons", "images/sea/")):
+            scene_path = f"scenes/{name}.json"
+            if scene_path not in archive.namelist():
+                if name == "tank":
+                    raise ValueError(f"Missing scene: {scene_path}")
+                continue
+            scene = json.loads(archive.read(scene_path))
+            tank_images = {path: size for path, size in images.items()
+                           if path.startswith(prefix) and "/" not in path.removeprefix(prefix)}
+            print(f"Scene {name}")
+            check_scene(scene, tank_images, prefix)
 
 
 if __name__ == "__main__":
