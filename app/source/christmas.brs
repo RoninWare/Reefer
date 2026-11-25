@@ -12,6 +12,7 @@
 '   bulbs     [[x, y, colour], ...]          the reefs' sorted by x; the tree's follow, in the
 '                                            order they hang on its string, as [x, y, colour, group]
 '   star      [x, y]                         centre of the tree's topper
+'   embers    [x, y]                         where xmas_embers.png lies over the logs (Night Lite)
 
 ' A cell of a sheet loaded with LoadTexture: the region, where its pixels really start (dx, dy:
 ' on a 720p Roku the shrunk sheet's edges are rounded) and the scale that restores its size.
@@ -52,6 +53,8 @@ sub ChristmasInit(s as object)
         end for
     end if
     if c.star <> invalid then x.star = LoadBitmap("pkg:/images/star_glow.png")
+    x.embers = invalid
+    if s.nightLite and c.embers <> invalid then x.embers = LoadBitmap("pkg:/images/xmas_embers.png")
     bb = LoadBitmap("pkg:/images/xmas_bubbles.png")
     if bb <> invalid and c.chimney <> invalid
         x.bubbleCells = []
@@ -214,6 +217,7 @@ sub ChristmasNight(s as object, screen as object, t as float)
     if s.nightLite
         ChristmasGlows(s, screen, 0.5)
         ChristmasStar(s, screen, t * 0.5, 0.36)
+        ChristmasEmbers(s, screen, t)
         return
     end if
     ChristmasFire(s, screen, t, Int(255 * s.night))
@@ -275,4 +279,20 @@ sub ChristmasGlows(s as object, screen as object, gain as float)
             end if
         end if
     end for
+end sub
+
+' Night Lite: the fire is out, and the logs glow. The embers breathe slowly, never going dark,
+' with a little warmth spilling on the hearth around them.
+sub ChristmasEmbers(s as object, screen as object, t as float)
+    x = s.xmas
+    c = s.cfg.christmas
+    if x.embers = invalid then return
+    sx = c.embers[0] - s.camX
+    if sx > 1980 or sx < -160 then return
+    breath = 0.5 + 0.3 * Sin(t * 0.7) + 0.2 * Sin(t * 1.9 + 1.3)
+    screen.DrawObject(sx, c.embers[1], x.embers, &hFFFFFF00 + Int(150 + 100 * breath))
+    if x.glows <> invalid
+        k = 1.5 + 0.2 * breath
+        screen.DrawScaledObject(sx + 49 - 32 * k, c.embers[1] + 36 - 20 * k, k, k * 0.62, x.glows[5], &hFFFFFF00 + Int(28 + 22 * breath))
+    end if
 end sub

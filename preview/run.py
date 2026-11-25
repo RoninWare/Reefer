@@ -126,6 +126,9 @@ def add_christmas(scene, contents):
         "star": [round(spot["x"] + tree["star"][0]), round(spot["y"] + tree["star"][1])],
     }
     contents["images/star_glow.png"] = (ART / "star_glow.png").read_bytes()
+    with Image.open(XMAS / "fireplace.png") as picture:
+        contents["images/xmas_embers.png"], at = embers(picture, fireplace["fire"])
+    scene["christmas"]["embers"] = placed(at)
     for source, packaged in (("glows", "xmas_glows"), ("bubbles", "xmas_bubbles"), ("fire_frames", "xmas_fire"),
                              ("lights", "xmas_lights"), ("santa_moray", "santa_moray")):
         contents[f"images/{packaged}.png"] = (XMAS / f"{source}.png").read_bytes()
@@ -143,6 +146,25 @@ def add_christmas(scene, contents):
     out = BytesIO()
     shade.save(out, "PNG")
     contents["images/santa_cave.png"] = out.getvalue()
+
+
+def embers(fireplace, fire):
+    """Embers for the Night Lite, when the fire is out: what glows in the fireplace's own picture
+    (the cracks in the logs and the bed under the grate), with the logs themselves left dim.
+    Returns the picture as PNG data and where it lies in the fireplace's picture."""
+    left, top = fire["x"] + 2, fire["y"] + 66
+    picture = fireplace.convert("RGBA").crop((left, top, left + 98, top + 60))
+    pixels = picture.load()
+    for y in range(picture.height):
+        for x in range(picture.width):
+            r, g, b, a = pixels[x, y]
+            heat = max(0.0, min(1.0, (r - 140) / 60)) * max(0.0, min(1.0, (r - 1.5 * b) / 45)) if a else 0.0
+            logs = 6 <= x <= 90 and 6 <= y <= 42       # the logs alone, not the hearth round them
+            wood = max(0.0, min(1.0, ((r + g + b) / 3 - 55) / 50)) * 0.34 if a and logs else 0.0
+            pixels[x, y] = (r, round(g * 0.9), round(b * 0.6), round(255 * heat)) if heat >= wood else (150, 40, 12, round(255 * wood))
+    out = BytesIO()
+    picture.save(out, "PNG")
+    return out.getvalue(), (left, top)
 
 
 def enable_720p(contents):

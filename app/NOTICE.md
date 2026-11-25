@@ -27,7 +27,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | `source/surface.brs` | Moving water surface. |
 | `source/reef_motion.brs` | Swaying anemone. |
 | `source/season.brs` | Takes the Christmas set out of the scene when it is switched off. |
-| `source/christmas.brs` | Hearth fire, chimney bubbles, the bulbs on the coral light strings and on the tree, and the glow of the tree's star. |
+| `source/christmas.brs` | Hearth fire, chimney bubbles, the bulbs on the coral light strings and on the tree, the glow of the tree's star, and embers in the hearth in Night Lite. |
 | `source/santa_moray.brs` | The green moray in a Santa hat. |
 | `source/shrimp.brs` | Peppermint shrimp that walk routes over the sand and rock, stopping to clean. |
 | `images/custom_*.png`, `images/star_glow.png`, `images/anemone_current.png`, `images/surface_ripple.jpg`, `images/xmas_*.png`, `images/santa_moray.png`, `images/santa_cave.png`, `images/shrimp.png` | Added art, laid in when the channel is packaged. |
