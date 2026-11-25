@@ -1,25 +1,29 @@
 ' Rellie Reef: adapted from Reef Glass v1.1.3 (Apache-2.0). What changed is listed in NOTICE.md.
-' Reef critters: feather duster worms and a starfish. The cave's moray is drawn here but
-' lives in santa_moray.brs (the green moray in his Santa hat, when the Christmas reef is on)
-' and moray.brs (the snowflake moray, otherwise); the anemone and giant clam are part of the
-' reef pieces.
+' Reef critters: feather dusters and a starfish, where the scene has them.
+' SantaMorayDraw also handles the everyday cave.
 
 sub CrittersInit(s as object)
     cfg = s.cfg
-    s.crown = CreateObject("roBitmap", "pkg:/images/duster_crown.png")
-    s.tube = CreateObject("roBitmap", "pkg:/images/duster_tube.png")
     s.dusters = []
-    k = 0
-    for each d in cfg.dusters
-        s.dusters.Push({ x: d.x, y: d.y, s: d.s, open: 1.0, mode: "open", wait: 0, cool: 0, ph: k * 1.9 })
-        k = k + 1
-    end for
+    if cfg.dusters <> invalid and cfg.dusters.Count() > 0
+        s.crown = CreateObject("roBitmap", ImgPath("duster_crown.png"))
+        s.tube = CreateObject("roBitmap", ImgPath("duster_tube.png"))
+        k = 0
+        for each d in cfg.dusters
+            s.dusters.Push({ x: d.x, y: d.y, s: d.s, open: 1.0, mode: "open", wait: 0, cool: 0, ph: k * 1.9 })
+            k = k + 1
+        end for
+        if s.crown = invalid or s.tube = invalid then s.dusters = []
+    end if
 
-    s.starBmp = CreateObject("roBitmap", "pkg:/images/starfish.png")
+    s.star = invalid
     sf = cfg.starfish
-    s.star = { x: RndRange(sf.x0, sf.x1), dir: 1, rest: 0 }
+    if sf <> invalid
+        s.starBmp = CreateObject("roBitmap", ImgPath("starfish.png"))
+        if s.starBmp <> invalid then s.star = { x: RndRange(sf.x0, sf.x1), dir: 1, rest: 0 }
+    end if
 
-    s.puff = CreateObject("roBitmap", "pkg:/images/puff.png")
+    s.puff = CreateObject("roBitmap", ImgPath("puff.png"))
     ' The moray loads after the fish (SantaMorayInit, called from ReefInit).
     s.moray = invalid
     s.santa = invalid
@@ -30,8 +34,9 @@ sub CrittersUpdate(s as object, t as float, dt as float)
     UpdateDusters(s, t, dt)
     ' Starfish: a very slow glide back and forth along the sand on its tube feet (real sea
     ' stars cover a few cm a minute), resting at each end.
-    sf = s.cfg.starfish
     st = s.star
+    if st = invalid then return
+    sf = s.cfg.starfish
     if st.rest > 0
         st.rest = st.rest - dt
     else
@@ -47,11 +52,13 @@ end sub
 sub CrittersDraw(s as object, screen as object, t as float)
     ' Starfish, with a soft contact shadow so it sits on the sand.
     st = s.star
-    sw = s.starBmp.GetWidth() : shh = s.starBmp.GetHeight()
-    sy = s.cfg.starfish.y
-    sx = st.x - s.camX
-    screen.DrawScaledObject(sx - sw * 0.55, sy - shh * 0.2, sw * 1.1 / 24, shh * 0.9 / 24, s.puff, &h1A140F00 + 90)
-    screen.DrawObject(sx - sw / 2, sy - shh / 2, s.starBmp)
+    if st <> invalid
+        sw = s.starBmp.GetWidth() : shh = s.starBmp.GetHeight()
+        sy = s.cfg.starfish.y
+        sx = st.x - s.camX
+        screen.DrawScaledObject(sx - sw * 0.55, sy - shh * 0.2, sw * 1.1 / 24, shh * 0.9 / 24, s.puff, &h1A140F00 + 90)
+        screen.DrawObject(sx - sw / 2, sy - shh / 2, s.starBmp)
+    end if
 
     ' The moray's cave shade covers rock around the cave; the dusters growing on that rock go
     ' over it.
@@ -101,6 +108,7 @@ sub UpdateDusters(s as object, t as float, dt as float)
 end sub
 
 sub DrawDusters(s as object, screen as object, t as float)
+    if s.dusters.Count() = 0 then return
     cw = s.crown.GetWidth() : ch = s.crown.GetHeight()
     tw = s.tube.GetWidth()
     drop = 0

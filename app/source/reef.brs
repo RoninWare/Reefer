@@ -10,8 +10,8 @@ function ReefInit(cfg as object, opts as object) as object
         cfg: cfg
         opts: opts
         nightLite: (opts.nightLite = true)
-        ray: CreateObject("roBitmap", "pkg:/images/ray.png")
-        mote: CreateObject("roBitmap", "pkg:/images/mote.png")
+        ray: CreateObject("roBitmap", ImgPath("ray.png"))
+        mote: CreateObject("roBitmap", ImgPath("mote.png"))
         motes: []
         dayK: 1.0
         hourClock: -10.0
@@ -29,10 +29,13 @@ function ReefInit(cfg as object, opts as object) as object
     ' Rellie Reef's extras load after the reef and the fish, the least essential last. Each
     ' is left out on its own if it does not fit in graphics memory.
     InitReefMotion(s)
-    s.surface = LoadSurface()
+    s.surface = LoadSurface(cfg.pan.width)
     ShrimpInit(s)
     ChristmasInit(s)
     SantaMorayInit(s)
+    GlowInit(s)
+    FishGlowInit(s)
+    ShrimpGlowInit(s)
     LogMemory("loaded")
     ' Each mote sways with one of four shared phases (four Sin calls a frame, not one each).
     for i = 1 to cfg.motes.count

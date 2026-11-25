@@ -21,13 +21,17 @@ sub SantaMorayInit(s as object)
     s.santa = invalid
     c = s.cfg.santaMoray
     tx = invalid
-    if c <> invalid then tx = LoadTexture("pkg:/images/santa_moray.png")
+    if c <> invalid then tx = LoadTexture(ImgPath("santa_moray.png"))
     if tx = invalid
         MorayInit(s)
         return
     end if
     s.moray = invalid
-    e = { cells: [], shade: LoadBitmap("pkg:/images/santa_cave.png"), mode: "hidden", wait: RndRange(3, 6), tm: 0.0, ph: 0.0, loops: 0, from: 0, threatNow: false }
+    e = { cells: [], shade: LoadBitmap(ImgPath("santa_cave.png")), mode: "hidden", wait: RndRange(3, 6), tm: 0.0, ph: 0.0, loops: 0, from: 0, threatNow: false }
+    if e.shade = invalid
+        MorayInit(s)
+        return
+    end if
     for each f in c.frames
         e.cells.Push({ cell: XmasCell(tx, f[0], f[1], f[2], f[3]), x: f[4], y: f[5], w: f[2] })
     end for
@@ -44,13 +48,12 @@ sub SantaMorayUpdate(s as object, t as float, dt as float)
         return
     end if
     c = s.cfg.santaMoray
-    mc = s.cfg.moray
     if s.frame mod 3 = 0
         threat = false
         for each f in s.fish
             if f.big and f.z > s.cfg.fgZ - 0.2
-                dx = f.x - mc.x : dy = f.y - mc.y
-                if dx * dx + dy * dy < mc.threat * mc.threat
+                dx = f.x - c.x : dy = f.y - c.y
+                if dx * dx + dy * dy < c.threat * c.threat
                     threat = true
                     exit for
                 end if

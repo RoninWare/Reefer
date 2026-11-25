@@ -14,6 +14,9 @@
 ' The Roku cannot draw a sprite both flipped and turned (see fish.brs), so a shrimp heading
 ' left up or down a slope is drawn flipped into a scratch bitmap of its own, and that is turned.
 '
+' At night a shrimp also shows its glow: its red lines, leg joints, feelers and eyes, from a
+' second sheet (shrimp_glow.png, laid out like the first at half its size) drawn over the dark.
+'
 ' Scene config (cfg.shrimp): w, h and cols of the frame grid, anchor [x, y] inside a frame,
 ' walk { first, count, travel: px walked in one cycle }, clean { first, count, period },
 ' routes [{ pts: [[x, y], ...], shadow: true on sand and rock it can cast a shadow on }, ...].
@@ -22,7 +25,7 @@ sub ShrimpInit(s as object)
     s.shrimp = invalid
     c = s.cfg.shrimp
     if c = invalid then return
-    tx = LoadTexture("pkg:/images/shrimp.png")
+    tx = LoadTexture(ImgPath("shrimp.png"))
     if tx = invalid then return
     e = { cells: [], list: [], kx: tx.kx, ky: tx.ky }
     ' The soft blot the other critters use for a shadow, turned about its centre.
@@ -140,25 +143,61 @@ end sub
 sub ShrimpDraw(s as object, screen as object, t as float)
     e = s.shrimp
     if e = invalid then return
+    ShrimpDrawFrom(s, screen, e, e.cells, e.kx, e.ky, "scr", &hFFFFFFFF)
+end sub
+
+' Loads the glow sheet, after everything else in the tank.
+sub ShrimpGlowInit(s as object)
+    if s.cfg.glow = invalid then return
+    e = s.shrimp
+    if e = invalid then return
+    e.glow = invalid
     c = s.cfg.shrimp
+    tx = LoadTexture(ImgPath("shrimp_glow.png"))
+    if tx = invalid then return
+    pg = { bmp: tx.bmp, w: tx.w * 2, h: tx.h * 2, kx: tx.kx * 2, ky: tx.ky * 2 }
+    e.glow = []
+    for i = 0 to c.walk.count + c.clean.count - 1
+        e.glow.Push(AtlasRegion(pg, (i mod c.cols) * c.w, Int(i / c.cols) * c.h, c.w, c.h, Int(c.anchor[0] + 0.5), Int(c.anchor[1] + 0.5)))
+    end for
+    e.gkx = pg.kx : e.gky = pg.ky
+end sub
+
+' After the night's dark has been laid over the tank: each shrimp's glow, pulsing a little.
+sub ShrimpGlow(s as object, screen as object, t as float)
+    e = s.shrimp
+    if e = invalid then return
+    if e.glow = invalid then return
+    level = s.night
+    if s.nightLite then level = 1.0
+    if level < 0.04 then return
+    a = Int(230 * level * (0.8 + 0.2 * Sin(t * 2.3)))
+    ShrimpDrawFrom(s, screen, e, e.glow, e.gkx, e.gky, "gscr", &hFFFFFF00 + a)
+end sub
+
+' Draws every shrimp from one sheet's frames: cells scaled kx, ky, tinted col. A shrimp heading
+' left on a slope goes through a scratch bitmap of its own, kept under the name `scratch`.
+sub ShrimpDrawFrom(s as object, screen as object, e as object, cells as object, kx as float, ky as float, scratch as string, col as integer)
+    c = s.cfg.shrimp
+    body = (scratch = "scr")
     for each sh in e.list
         sx = sh.x - s.camX
         if sx > -180 and sx < 2100
             if sh.mode = "walk"
                 p = sh.ph - Int(sh.ph)
-                cell = e.cells[c.walk.first + Int(p * c.walk.count) mod c.walk.count]
+                cell = cells[c.walk.first + Int(p * c.walk.count) mod c.walk.count]
             else
                 p = sh.cph - Int(sh.cph)
-                cell = e.cells[c.clean.first + Int(p * c.clean.count) mod c.clean.count]
+                cell = cells[c.clean.first + Int(p * c.clean.count) mod c.clean.count]
             end if
             ' A soft shadow under the body, lying along the ground.
-            if sh.shadow then screen.DrawTransformedObject(sx - 9 * sh.face, sh.y - 1, sh.th, 3.7, 0.42, e.blot, &h0A141E00 + 84)
+            if body and sh.shadow then screen.DrawTransformedObject(sx - 9 * sh.face, sh.y - 1, sh.th, 3.7, 0.42, e.blot, &h0A141E00 + 84)
             if sh.face > 0
-                screen.DrawTransformedObject(sx, sh.y, sh.th, e.kx, e.ky, cell)
-            else if Abs(sh.th) < 1.5 or not ShrimpFlipped(e, sh, cell)
-                screen.DrawTransformedObject(sx, sh.y, 0, -e.kx, e.ky, cell)
+                screen.DrawTransformedObject(sx, sh.y, sh.th, kx, ky, cell, col)
+            else if Abs(sh.th) < 1.5 or not ShrimpFlipped(e, sh, cell, kx, ky, scratch)
+                screen.DrawTransformedObject(sx, sh.y, 0, -kx, ky, cell, col)
             else
-                screen.DrawTransformedObject(sx, sh.y, sh.th, 1, 1, sh.scr.reg)
+                screen.DrawTransformedObject(sx, sh.y, sh.th, 1, 1, sh[scratch].reg, col)
             end if
         end if
     end for
@@ -166,15 +205,15 @@ end sub
 
 ' Draws a frame flipped and level into the shrimp's scratch bitmap. False when there is no
 ' graphics memory for one (the shrimp is then drawn level).
-function ShrimpFlipped(e as object, sh as object, cell as object) as boolean
-    if sh.scr = invalid
+function ShrimpFlipped(e as object, sh as object, cell as object, kx as float, ky as float, scratch as string) as boolean
+    if sh[scratch] = invalid
         bmp = LoadBitmap({ width: e.scrW, height: e.scrH, AlphaEnable: true })
         if bmp = invalid then return false
         reg = CreateObject("roRegion", bmp, 0, 0, e.scrW, e.scrH)
         reg.SetPretranslation(-e.scrW / 2, -e.scrH / 2)
-        sh.scr = { bmp: bmp, reg: reg }
+        sh[scratch] = { bmp: bmp, reg: reg }
     end if
-    sh.scr.bmp.Clear(0)
-    sh.scr.bmp.DrawTransformedObject(e.scrW / 2, e.scrH / 2, 0, -e.kx, e.ky, cell)
+    sh[scratch].bmp.Clear(0)
+    sh[scratch].bmp.DrawTransformedObject(e.scrW / 2, e.scrH / 2, 0, -kx, ky, cell)
     return true
 end function

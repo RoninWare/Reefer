@@ -25,6 +25,17 @@ function SeasonChoices() as object
     ]
 end function
 
+' Tank choices, in list order. The id is the scene file (scenes/<id>.json) and the image
+' prefix the tank's pictures live under (see m.img in main.brs): Rellie's art is flat in
+' images/, the Seasons tank's in images/sea/.
+function TankChoices() as object
+    choices = [{ id: "tank", label: "Rellie Reef" }]
+    if ReadAsciiFile("pkg:/scenes/reef-loader.txt") = "enabled"
+        choices.Push({ id: "seasons", label: "Seasons Reef tank" })
+    end if
+    return choices
+end function
+
 ' A saved choice, or the fallback when nothing valid is saved.
 function LoadSetting(key as string, choices as object, fallback as string) as string
     reg = CreateObject("roRegistrySection", "rellieReef")
@@ -50,6 +61,17 @@ function LoadSeason() as string
     return LoadSetting("season", SeasonChoices(), "christmas")
 end function
 
+function LoadTank() as string
+    return LoadSetting("tank", TankChoices(), "tank")
+end function
+
+' The image prefix for the loaded tank ("" for Rellie, "sea/" for the Seasons tank), so
+' shared code resolves a tank's pictures at one path (main.brs's ImgPath).
+function TankImg(id as string) as string
+    if id = "seasons" then return "sea/"
+    return ""
+end function
+
 ' The hour to hold the tank at for a lighting choice, or invalid to follow the clock.
 function LightingHour(id as string) as dynamic
     for each c in LightingChoices()
@@ -69,11 +91,16 @@ sub RunScreenSaverSettings()
     ' filled and set, so filling a list never saves its first entry.
     ui.lightingChoices = LightingChoices()
     ui.seasonChoices = SeasonChoices()
+    tanks = TankChoices()
+    ui.tankChoices = tanks
     ui.lighting = LoadLighting()
     ui.season = LoadSeason()
+    ui.tank = LoadTank()
     ui.ObserveField("lighting", port)
     ui.ObserveField("season", port)
+    if tanks.Count() > 1 then ui.ObserveField("tank", port)
     ui.ObserveField("done", port)
+    ui.settingsReady = true
     while true
         msg = wait(0, port)
         t = type(msg)
@@ -86,9 +113,14 @@ sub RunScreenSaverSettings()
             SaveSetting("season", ui.season)
             print "SETTINGS saved season="; ui.season
         end if
+        if t = "roSGNodeEvent" and msg.GetField() = "tank"
+            SaveSetting("tank", ui.tank)
+            print "SETTINGS saved tank="; ui.tank
+        end if
         if (t = "roSGNodeEvent" and msg.GetField() = "done") or (t = "roSGScreenEvent" and msg.IsScreenClosed())
             SaveSetting("lighting", ui.lighting)
             SaveSetting("season", ui.season)
+            if tanks.Count() > 1 then SaveSetting("tank", ui.tank)
             return
         end if
     end while

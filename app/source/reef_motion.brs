@@ -1,7 +1,8 @@
 ' Decorative effects are loaded after the core reef and fish.
 sub InitReefMotion(s as object)
     s.anemoneFrames = invalid
-    atlas = LoadBitmap("pkg:/images/anemone_current.png")
+    if s.cfg.anemoneMotion <> true then return
+    atlas = LoadBitmap(ImgPath("anemone_current.png"))
     if atlas = invalid then return
     frames = []
     w = Int(atlas.GetWidth() / 4)

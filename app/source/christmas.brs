@@ -43,7 +43,7 @@ sub ChristmasInit(s as object)
     x = { fire: invalid, glows: invalid, star: invalid, bubbles: [], bubbleCells: invalid, tiles: [], bulbs: [], level: [0, 0, 0, 0, 0, 0, 0, 0] }
     x.puff = 2.0 : x.trickle = 0.5 : x.burst = 0
     ' Small sprites first: they cost little and carry most of the life.
-    gb = LoadBitmap("pkg:/images/xmas_glows.png")
+    gb = LoadBitmap(ImgPath("xmas_glows.png"))
     if gb <> invalid
         x.glows = []
         for i = 0 to 5
@@ -52,10 +52,10 @@ sub ChristmasInit(s as object)
             x.glows.Push(r)
         end for
     end if
-    if c.star <> invalid then x.star = LoadBitmap("pkg:/images/star_glow.png")
+    if c.star <> invalid then x.star = LoadBitmap(ImgPath("star_glow.png"))
     x.embers = invalid
-    if s.nightLite and c.embers <> invalid then x.embers = LoadBitmap("pkg:/images/xmas_embers.png")
-    bb = LoadBitmap("pkg:/images/xmas_bubbles.png")
+    if s.nightLite and c.embers <> invalid then x.embers = LoadBitmap(ImgPath("xmas_embers.png"))
+    bb = LoadBitmap(ImgPath("xmas_bubbles.png"))
     if bb <> invalid and c.chimney <> invalid
         x.bubbleCells = []
         for i = 0 to 1
@@ -68,7 +68,7 @@ sub ChristmasInit(s as object)
         end for
     end if
     if c.fire <> invalid
-        fb = LoadBitmap("pkg:/images/xmas_fire.png")
+        fb = LoadBitmap(ImgPath("xmas_fire.png"))
         if fb <> invalid
             x.fire = []
             for i = 0 to c.fire.frames - 1
@@ -77,7 +77,7 @@ sub ChristmasInit(s as object)
         end if
     end if
     if c.tiles <> invalid
-        tx = LoadTexture("pkg:/images/xmas_lights.png")
+        tx = LoadTexture(ImgPath("xmas_lights.png"))
         if tx <> invalid
             for each tl in c.tiles
                 x.tiles.Push({ x: tl[0], y: tl[1], w: tl[4], cell: XmasCell(tx, tl[2], tl[3], tl[4], tl[5]) })

@@ -1,7 +1,7 @@
 ' The 24 poses occupy one texture and share the camera's tank-space origin.
 ' Load after the fish so an optional water effect never displaces a species.
-function LoadSurface() as dynamic
-    atlas = LoadBitmap("pkg:/images/surface_ripple.jpg")
+function LoadSurface(tankWidth as integer) as dynamic
+    atlas = LoadBitmap(ImgPath("surface_ripple.jpg"))
     if atlas = invalid then return invalid
     frames = []
     height = Int(atlas.GetHeight() / 24)
@@ -11,7 +11,7 @@ function LoadSurface() as dynamic
         region.SetScaleMode(1)
         frames.Push(region)
     end for
-    return frames
+    return { frames: frames, scale: tankWidth / atlas.GetWidth() }
 end function
 
 sub DrawSurface(s as object, screen as object, t as float)
@@ -20,8 +20,10 @@ sub DrawSurface(s as object, screen as object, t as float)
     phase = t * 5.0 + 0.9 * Sin(t * 0.71)
     index = Int(phase)
     mix = Int((phase - index) * 255)
-    screen.DrawScaledObject(-s.camX, 0, 2.0, 2.0, s.surface[index mod 24])
+    scale = s.surface.scale
+    frames = s.surface.frames
+    screen.DrawScaledObject(-s.camX, 0, scale, scale, frames[index mod 24])
     if mix > 0
-        screen.DrawScaledObject(-s.camX, 0, 2.0, 2.0, s.surface[(index + 1) mod 24], &hFFFFFF00 + mix)
+        screen.DrawScaledObject(-s.camX, 0, scale, scale, frames[(index + 1) mod 24], &hFFFFFF00 + mix)
     end if
 end sub

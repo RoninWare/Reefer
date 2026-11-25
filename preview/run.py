@@ -206,7 +206,27 @@ def archive(contents):
     return out.getvalue()
 
 
-def package(*, device=False, moving_water=True, preview_720=False, refined_tang=True, opts=None):
+def add_seasons_tank(contents):
+    # Copy scene data and runtime artwork from the independent store build.
+    market = market_contents()
+    prefix = "pkg:/images/"
+    scene = json.loads(market["scenes/tank.json"])
+    santa = scene.get("santaMoray")
+    if santa is not None:
+        santa.update(scene["moray"])
+    scene.pop("moray", None)
+    scene_json = json.dumps(scene, separators=(",", ":"))
+    contents["scenes/seasons.json"] = scene_json.replace(prefix, prefix + "sea/").encode()
+    contents["scenes/reef-loader.txt"] = b"enabled"
+    for path, data in market.items():
+        if path.startswith("images/"):
+            name = path.removeprefix("images/")
+            if not name.startswith(("icon_", "splash_")):
+                contents[f"images/sea/{name}"] = data
+
+
+def package(*, device=False, moving_water=True, preview_720=False, refined_tang=True,
+            opts=None, reef_loader=False):
     """The channel ZIP: app/ with the authored art laid into its scene. For the preview a Main
     entry point is added (and, on request, the 720p drawing wrappers)."""
     contents = {path.relative_to(APP).as_posix(): path.read_bytes() for path in sorted(APP.rglob("*")) if path.is_file()}
@@ -221,6 +241,11 @@ def package(*, device=False, moving_water=True, preview_720=False, refined_tang=
     if refined_tang:
         add_tang_turns(scene, contents)
     add_christmas(scene, contents)
+    scene["anemoneMotion"] = True
+    scene["snowflakeMoray"] = scene.pop("moray")
+    scene["santaMoray"].update({key: scene["snowflakeMoray"][key] for key in ("x", "y", "threat")})
+    if reef_loader:
+        add_seasons_tank(contents)
     contents["scenes/tank.json"] = json.dumps(scene, separators=(",", ":")).encode()
     if not device:
         add_preview_entry(contents, opts)
@@ -239,12 +264,16 @@ def package_upstream(*, preview_720=False):
     return archive(contents)
 
 
-def package_market(*, preview_720=False, opts=None):
-    """The store edition, which market/build.py builds from market/app, with the preview's Main."""
+def market_contents():
     spec = importlib.util.spec_from_file_location("market_build", ROOT / "market/build.py")
     build = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(build)
-    contents = build.contents()
+    return build.contents()
+
+
+def package_market(*, preview_720=False, opts=None):
+    """The store edition with the preview's Main."""
+    contents = market_contents()
     add_preview_entry(contents, opts)
     if preview_720:
         enable_720p(contents)
@@ -273,11 +302,17 @@ class Handler(BaseHTTPRequestHandler):
                 elif query.get("market") == ["1"]:
                     data = package_market(preview_720=preview_720, opts=preview_options(query))
                 else:
+                    tank = query.get("tank", [""])[0]
+                    reef_loader = query.get("loader") == ["1"] or tank == "seasons"
+                    opts = preview_options(query)
+                    if tank in ("tank", "seasons"):
+                        opts["scene"] = json.dumps(tank)
                     data = package(
+                        reef_loader=reef_loader,
                         moving_water=query.get("water") != ["still"],
                         preview_720=preview_720,
                         refined_tang=query.get("turns") != ["original"],
-                        opts=preview_options(query),
+                        opts=opts,
                     )
                 mime = "application/zip"
             elif url.path in ROUTES:
@@ -316,9 +351,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--device-zip", type=Path, help="Build the standalone screensaver and exit")
+    parser.add_argument("--reef-loader", action="store_true", help="Include both tanks in the local device ZIP")
     args = parser.parse_args()
     if args.device_zip:
-        args.device_zip.write_bytes(package(device=True))
+        args.device_zip.write_bytes(package(device=True, reef_loader=args.reef_loader))
         raise SystemExit(0)
     port = args.port
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)

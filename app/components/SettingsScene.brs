@@ -1,12 +1,25 @@
 ' Rellie Reef: adapted from Reef Glass v1.1.3 (Apache-2.0). What changed is listed in NOTICE.md.
-' Two radio lists, lighting above season. Picking an entry reports it at once (the main
-' thread saves it), and Back reports done. Each list is known by the name of its field.
-
 sub init()
-    m.lists = { lighting: m.top.findNode("lighting"), season: m.top.findNode("season") }
-    m.ids = { lighting: [], season: [] }
-    m.focused = "lighting"
-    m.lists.lighting.setFocus(true)
+    m.order = ["lighting", "season"]
+    m.focused = 0
+    m.lists = {}
+    m.ids = {}
+    for each name in ["tank", "lighting", "season"]
+        m.lists[name] = m.top.findNode(name)
+        m.ids[name] = []
+    end for
+end sub
+
+sub onTankChoices()
+    if m.top.tankChoices.Count() < 2 then return
+    fill("tank", m.top.tankChoices, "onTankChecked")
+    m.top.findNode("tankLabel").visible = true
+    m.lists.tank.visible = true
+    m.top.findNode("lightingLabel").translation = [160, 391]
+    m.lists.lighting.translation = [160, 437]
+    m.top.findNode("seasonLabel").translation = [160, 764]
+    m.lists.season.translation = [160, 810]
+    m.order = ["tank", "lighting", "season"]
 end sub
 
 sub onLightingChoices()
@@ -15,11 +28,12 @@ end sub
 
 sub onSeasonChoices()
     fill("season", m.top.seasonChoices, "onSeasonChecked")
-    ' Both lists are filled and the screen is fully shown: tell Roku the launch is complete
-    ' (certification 3.2 measures launch time with this beacon).
-    if m.launched <> true
+end sub
+
+sub onReady()
+    if m.top.settingsReady
+        m.lists[m.order[m.focused]].setFocus(true)
         m.top.signalBeacon("AppLaunchComplete")
-        m.launched = true
     end if
 end sub
 
@@ -43,6 +57,10 @@ sub fill(name as string, choices as object, callback as string)
     list.observeField("checkedItem", callback)
 end sub
 
+sub onTankSet()
+    choose("tank", m.top.tank)
+end sub
+
 sub onLightingSet()
     choose("lighting", m.top.lighting)
 end sub
@@ -51,10 +69,8 @@ sub onSeasonSet()
     choose("season", m.top.season)
 end sub
 
-' Shows a saved pick in its list. The picks arrive after init, once the screen is shown; focus
-' set in init can be lost by then, so the list that should have it takes it again here.
+' Show the saved pick without moving focus across lists.
 sub choose(name as string, id as dynamic)
-    if not m.lists[m.focused].hasFocus() then m.lists[m.focused].setFocus(true)
     list = m.lists[name]
     ids = m.ids[name]
     for i = 0 to ids.Count() - 1
@@ -63,6 +79,10 @@ sub choose(name as string, id as dynamic)
             list.jumpToItem = i
         end if
     end for
+end sub
+
+sub onTankChecked()
+    report("tank")
 end sub
 
 sub onLightingChecked()
@@ -87,17 +107,15 @@ function onKeyEvent(key as string, press as boolean) as boolean
         m.top.done = true
         return true
     end if
-    if key = "down" and m.focused = "lighting"
-        m.focused = "season"
-        m.lists.season.jumpToItem = 0
-        m.lists.season.setFocus(true)
-        return true
-    end if
-    if key = "up" and m.focused = "season"
-        m.focused = "lighting"
-        m.lists.lighting.jumpToItem = m.ids.lighting.Count() - 1
-        m.lists.lighting.setFocus(true)
-        return true
-    end if
-    return false
+    nextList = m.focused
+    if key = "down" then nextList = nextList + 1
+    if key = "up" then nextList = nextList - 1
+    if nextList = m.focused or nextList < 0 or nextList >= m.order.Count() then return false
+    m.focused = nextList
+    name = m.order[m.focused]
+    index = 0
+    if key = "up" then index = m.ids[name].Count() - 1
+    m.lists[name].jumpToItem = index
+    m.lists[name].setFocus(true)
+    return true
 end function

@@ -7,7 +7,7 @@
 '   - marked pieces are dropped from the tank;
 '   - the fish steer by the coral map made without them ("coralPlain");
 '   - with "christmas" gone, christmas.brs draws nothing;
-'   - with "santaMoray" gone, the snowflake moray keeps the cave (santa_moray.brs).
+'   - with "santaMoray" gone, the snowflake moray keeps the cave when the tank has one.
 
 sub ApplySeason(cfg as object, christmas as boolean)
     if christmas then return

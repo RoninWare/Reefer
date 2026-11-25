@@ -14,13 +14,15 @@
 ' real rock edge. The body is clipped at the shade's right edge ("clip").
 
 sub MorayInit(s as object)
-    c = s.cfg.moray
+    c = s.cfg.snowflakeMoray
     s.moray = invalid
     if c = invalid then return
+    body = LoadBitmap(ImgPath("moray.png"))
+    jaw = LoadBitmap(ImgPath("moray_jaw.png"))
+    shade = LoadBitmap(ImgPath("cave_shade.png"))
+    if body = invalid or jaw = invalid or shade = invalid then return
     s.moray = {
-        body: CreateObject("roBitmap", "pkg:/images/moray.png")
-        jaw: CreateObject("roBitmap", "pkg:/images/moray_jaw.png")
-        shade: CreateObject("roBitmap", "pkg:/images/cave_shade.png")
+        body: body, jaw: jaw, shade: shade
         out: 0.7, v: 0.0, outT: 0.7, mode: "out", wait: RndRange(6, 14), calm: 0
         bph: 0.0, bper: 5.0, threatNow: false
         from: 0.7, tw: 0.0, dur: 1.0
@@ -35,7 +37,7 @@ end sub
 sub MorayUpdate(s as object, t as float, dt as float)
     e = s.moray
     if e = invalid then return
-    c = s.cfg.moray
+    c = s.cfg.snowflakeMoray
     if s.frame mod 3 = 0
         threat = false
         for each f in s.fish
@@ -105,7 +107,7 @@ end sub
 sub MorayDraw(s as object, screen as object, t as float)
     e = s.moray
     if e = invalid then return
-    c = s.cfg.moray
+    c = s.cfg.snowflakeMoray
     x = Int(c.x - s.camX + (1 - e.out) * c.reach + 0.5)
     y = c.y
     y0 = y - e.body.GetHeight() \ 2

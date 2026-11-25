@@ -14,6 +14,7 @@ sub RunScreenSaver()
     h = LightingHour(lighting)
     if h <> invalid then opts.hour = h
     opts.christmas = (LoadSeason() = "christmas")
+    opts.scene = LoadTank()
     RunReef(opts, false)
 end sub
 
@@ -33,6 +34,14 @@ sub RunReef(opts as object, isApp as boolean)
     scene = "tank"
     if opts.scene <> invalid then scene = opts.scene
     cfg = ParseJson(ReadAsciiFile("pkg:/scenes/" + scene + ".json"))
+    if cfg = invalid and scene <> "tank"
+        print "TANK unavailable: "; scene
+        scene = "tank"
+        cfg = ParseJson(ReadAsciiFile("pkg:/scenes/tank.json"))
+    end if
+    if cfg = invalid then return
+    m.img = TankImg(scene)
+    print "TANK "; scene
     ' The scene holds the Christmas reef; without it the season's parts are taken out here.
     ApplySeason(cfg, opts.christmas <> false)
     s = ReefInit(cfg, opts)
@@ -156,6 +165,12 @@ sub LogMemory(label as string)
     end try
     print "MEMORY "; label; ": limit "; limit; " available "; avail; " used% "; pct
 end sub
+
+' A picture's path under the tank's image prefix (m.img, set in RunReef): "" for
+' Rellie's flat images/, "sea/" for the Seasons tank's images/sea/.
+function ImgPath(name as string) as string
+    return "pkg:/images/" + m.img + name
+end function
 
 ' Float modulo with a non-negative result (BrightScript's mod works on integers).
 function FMod(a as float, m as float) as float
