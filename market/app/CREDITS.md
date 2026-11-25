@@ -19,6 +19,7 @@ them are in the repository's `authoring/` folder, or in `market/` where noted.
 | `surface_ripple.jpg` | that scene mirrored in the water's surface and rippled | `market/authoring/create_surface.py` |
 | `tang_atlas0.png`, `surgeon_atlas0.png`, `mandarin_atlas0.png`, `lionfish_atlas0.png`, `damsel_atlas0.png`, `dottyback_atlas0.png` | original procedural Blender models of six reef fish, rendered at 26 headings | `market/authoring/create_fish.py` |
 | `ray.png`, `mote.png`, `puff.png` | drawn from formulas | `market/light.py` |
+| `xmas_embers.png` | the glowing parts of the fireplace's own picture: the cracks in the logs and the bed under the grate | `market/reef.py` |
 | `santa_cave.png` | the cave's darkness, cut from our own rendered reef and faded out toward the cave mouth | `market/reef.py` |
 | `splash_*.jpg`, `icon_*.jpg` | title in Georgia; the icons carry a capture of the running tank at night | `market/branding.py` |
 

@@ -10,7 +10,8 @@ of app/scenes/tank.json that depends on where things are:
   * the coral maps the fish steer by, drawn from the pieces' own outlines
   * the moray, mirrored to face right and moved into the cave, with the cave's darkness to
     draw back over his tail
-  * the Christmas set at its places in layout.json, the light strings and their bulbs
+  * the Christmas set at its places in layout.json, the light strings and their bulbs,
+    and the embers that glow in the hearth in Night Lite
   * the fish and their sprite sheets, the shrimp's routes and the light shafts
 
 Running it twice changes nothing more: it works from market/art and from where the scene
@@ -101,6 +102,21 @@ def main():
     xmas["fire"]["x"], xmas["fire"]["y"] = xmas["fire"]["x"] + dx, xmas["fire"]["y"] + dy
     for key in ("hearth", "chimney"):
         xmas[key] = [xmas[key][0] + dx, xmas[key][1] + dy]
+    # Embers for the Night Lite, when the fire is out: what glows in the fireplace's own picture
+    # (the cracks in the logs and the bed under the grate), with the logs themselves left dim.
+    hearth = Image.open(IMAGES / "custom_fireplace.png").convert("RGBA")
+    left, top = xmas["fire"]["x"] - spots["fireplace"][0] + 2, xmas["fire"]["y"] - spots["fireplace"][1] + 66
+    embers = hearth.crop((left, top, left + 98, top + 60))
+    pixels = embers.load()
+    for y in range(embers.height):
+        for x in range(embers.width):
+            r, g, b, a = pixels[x, y]
+            heat = max(0.0, min(1.0, (r - 140) / 60)) * max(0.0, min(1.0, (r - 1.5 * b) / 45)) if a else 0.0
+            logs = 6 <= x <= 90 and 6 <= y <= 42       # the logs alone, not the hearth round them
+            wood = max(0.0, min(1.0, ((r + g + b) / 3 - 55) / 50)) * 0.34 if a and logs else 0.0
+            pixels[x, y] = (r, round(g * 0.9), round(b * 0.6), round(255 * heat)) if heat >= wood else (150, 40, 12, round(255 * wood))
+    embers.save(IMAGES / "xmas_embers.png")
+    xmas["embers"] = [spots["fireplace"][0] + left, spots["fireplace"][1] + top]
     lights = json.loads((ART / "lights.json").read_text())
     Image.open(ART / "lights.png").save(IMAGES / "xmas_lights.png")
 

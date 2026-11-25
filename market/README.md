@@ -57,6 +57,7 @@ The tank and its reef are our own, rendered in Blender:
 ```sh
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_reefscape.py
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_surface.py
+python market/strings.py
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_lights.py
 python market/reef.py
 python market/build.py
@@ -64,8 +65,9 @@ python market/build.py
 
 - `authoring/create_reefscape.py` builds the empty tank and three structures (an arch, a low mound of large corals, and a cave rock for the moray) and renders each on its own into `art/reefscape/`. `-- --draft` is quick and rough; `-- --only <name>` renders one structure. `authoring/reef_kit.py` holds the corals, the rock and their materials.
 - `authoring/create_surface.py` mirrors the reef in the underside of the water and bakes the ripple.
+- `strings.py` seats the light strings on the reef: `art/string_guides.json` holds a rough line for each string, and it moves every anchor onto coral or rock and adds anchors wherever the wire would sag over open water. It writes `art/strings.json`. Run it again whenever a structure is re-rendered.
 - `authoring/create_lights.py` strings Christmas lights along the anchor points in `art/strings.json`.
-- `reef.py` lays all of it into `app/`: background tiles, reef pieces, the coral maps the fish steer by, the moray mirrored into the cave, the Christmas set at its places, the bulbs, the shrimp's routes and the fish's haunts. Positions that are ours to choose are in `art/layout.json`.
+- `reef.py` lays all of it into `app/`: background tiles, reef pieces, the coral maps the fish steer by, the moray mirrored into the cave, the Christmas set at its places, the bulbs, the embers that glow in the hearth in Night Lite, the shrimp's routes and the fish's haunts. Positions that are ours to choose are in `art/layout.json`.
 
 `art/reefscape/preview.jpg` is the tank with its structures and nothing else. The moray's frames in `art/moray/` are as rendered for Rellie Reef, facing left; `reef.py` mirrors them.
 
