@@ -65,6 +65,8 @@ def main():
     scaled.update(path for path in images if "_atlas" in path)
     # The shrimp's frames and the Christmas set's two big sheets go through LoadTexture as well.
     scaled.update(path for path in ("images/shrimp.png", "images/santa_moray.png", "images/xmas_lights.png") if path in images)
+    # So do the store edition's glow pictures.
+    scaled.update(path for path in images if "_glow" in path)
     for scale in (1, 1.5):
         total = 0
         for path, size in images.items():

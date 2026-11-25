@@ -20,8 +20,8 @@
  "fish": {
   "tang": {"count": 2, "speed": 75, "beat": 2.0, "big": true, "turn": 3.0, "near": 120, "sideLen": 190},
   "surgeon": {"count": 2, "speed": 66, "beat": 2.2, "big": true, "turn": 3.2, "near": 120, "sideLen": 185},
-  "mandarin": {"count": 2, "speed": 26, "beat": 3.0, "turn": 5.0, "near": 60, "sideLen": 108, "shuffle": true, "visit": 0.3, "follow": "pair", "homes": [[2830, 760, 0.955], [2830, 760, 0.955]]},
-  "lionfish": {"count": 1, "speed": 22, "beat": 2.4, "turn": 2.8, "near": 100, "sideLen": 190},
+  "mandarin": {"count": 2, "row": 7, "speed": 26, "beat": 3.0, "turn": 5.0, "near": 60, "sideLen": 108, "shuffle": true, "visit": 0.3, "follow": "pair", "homes": [[2830, 760, 0.955], [2830, 760, 0.955]]},
+  "lionfish": {"count": 1, "row": 1.6, "speed": 22, "beat": 2.4, "turn": 2.8, "near": 100, "sideLen": 190},
   "damsel": {"count": 6, "speed": 42, "beat": 3.5, "turn": 6.0, "near": 60, "sideLen": 82, "follow": "school", "visit": 0.3, "visitAt": [2600, 360, 0.88], "shuffle": true},
   "dottyback": {"count": 2, "speed": 32, "beat": 3.0, "turn": 5.0, "near": 60, "sideLen": 96, "visit": 0.35, "shuffle": true, "homes": [[930, 580, 0.9], [2330, 740, 0.9]]}
  }

@@ -18,7 +18,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | `source/settings.brs` | Adds the season setting. Settings are stored in the `rellieReef` registry section. |
 | `components/SettingsScene.xml`, `components/SettingsScene.brs` | Two lists, lighting and season, with focus moving between them. |
 | `images/splash_*.jpg`, `images/icon_*.jpg` | Re-rendered with the title "Seasons Reef tank". |
-| `source/fish.brs` | Shows one strength of body bend toward each flank, which is what the fish sheets hold. |
+| `source/fish.brs` | Shows one strength of body bend toward each flank, which is what the fish sheets hold. Draws a rowing pectoral fin from the poses a view carries, and draws each fish's glow over the night's dark. |
 | `images/*_atlas0.png`, `images/ray.png`, `images/mote.png`, `images/puff.png` | Removed. The fish and the light sprites are new pictures, made for this edition. |
 | Every PNG | Saved again more tightly when the package is built, to fit Roku's 4 MB limit. |
 | `scenes/tank.json` | The added models, the Christmas set, the shrimp's routes and a second coral map are written into the scene. |
@@ -30,6 +30,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | File | Purpose |
 |---|---|
 | `source/surface.brs` | Moving water surface. |
+| `source/glow.brs` | The reef's glow at night and in Night Lite. |
 | `source/season.brs` | Takes the Christmas set out of the scene when it is switched off. |
 | `source/christmas.brs` | Hearth fire, chimney bubbles, the bulbs on the coral light strings and on the tree, the glow of the tree's star, and embers in the hearth in Night Lite. |
 | `source/santa_moray.brs` | The green moray in a Santa hat. |

@@ -19,6 +19,9 @@ Writes shrimp.blend (the first walk pose), shrimp.png (the frames in a grid) and
 (frame size, the point on the ground under the body, and the clips).
 Pass `-- --still walk:<phase>` or `clean:<phase>` to render one pose to _shrimp_still.png, four
 times the size, for a close look at the model.
+Pass `-- --glow <file.png>` to render the same frames showing only what the shrimp gives off in
+the dark (its red lines, the joints of its legs, its feelers and tail fan, its eyes) to that
+file, laid out like shrimp.png. Nothing else is written.
 """
 import json
 import math
@@ -36,7 +39,8 @@ from rig import Graph, TAU
 
 OUT = HERE / "shrimp.blend"
 STILL = next((a for a in rig.script_args() if ":" in a), None) if "--still" in rig.script_args() else None
-if not STILL:
+GLOW = Path(rig.script_args()[rig.script_args().index("--glow") + 1]).resolve() if "--glow" in rig.script_args() else None
+if not STILL and not GLOW:
     rig.guard(OUT)
 scene = rig.reset(samples=160)
 
@@ -300,6 +304,20 @@ red = g.math("MAXIMUM", value("band"), g.math("MULTIPLY", g.math("SMOOTHSTEP", 0
 g.to("Base Color", g.mix(red, g.attribute("tint").outputs["Color"], RED))
 g.to("Subsurface Radius", (0.9, 0.35, 0.25))
 EYE = rig.material("Eye", (0.012, 0.008, 0.008), 0.08, Coat_Weight=1.0)
+if GLOW:
+    # The same shell, giving off light where it is red and nothing elsewhere.
+    SHELL = rig.material("Shell glow", (0, 0, 0), 1.0, Specular_IOR_Level=0.0)
+    g = Graph(SHELL)
+    around = g.math("ARCTAN2", value("sv"), value("cv"))
+    lines = g.math("SINE", g.math("ADD", g.math("MULTIPLY", around, 12.0), g.math("MULTIPLY", value("u"), 26.0)))
+    red = g.math("MAXIMUM", value("band"), g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.4, 0.8, lines), value("ink")))
+    # Feelers, the tail fan and the joints of the legs are the reddest parts: least green in them.
+    green = g.node("ShaderNodeSeparateColor")
+    g.set(green.inputs["Color"], g.attribute("tint").outputs["Color"])
+    amount = g.math("MAXIMUM", red, g.math("SMOOTHSTEP", 0.21, 0.17, green.outputs["Green"]))
+    g.to("Emission Color", g.mix(amount, (0, 0, 0), (1.0, 0.3, 0.12)))
+    g.to("Emission Strength", 1.0)
+    EYE = rig.material("Eye glow", (0, 0, 0), 1.0, Specular_IOR_Level=0.0, Emission_Color=(0.3, 1.0, 0.6), Emission_Strength=0.7)
 
 # ---- stage -----------------------------------------------------------------------------
 # Lit from nearly overhead by a broad light, as a tank is.
@@ -315,7 +333,26 @@ px = rig.PX * (4 if STILL else 1)
 w, h = rig.frame(scene, cam, [box], pad=(3, 3, 3, 3), px=px)
 anchor = rig.project(scene, cam, Matrix.Rotation(YAW, 3, "Z") @ Vector((0.15 * SIZE, 0, 0)), px=px)
 
-if STILL:
+if GLOW:
+    import numpy as np
+    sun.hide_render = True
+    next(node for node in scene.world.node_tree.nodes if node.type == "BACKGROUND").inputs["Strength"].default_value = 0.0
+    scene.cycles.samples = 16
+    paths = []
+    poses = [walk_pose(i / WALK_FRAMES) for i in range(WALK_FRAMES)] + [clean_pose(i / CLEAN_FRAMES) for i in range(CLEAN_FRAMES)]
+    for i, pose in enumerate(poses):
+        build(pose)
+        paths.append(HERE / f"_glow_{i:02d}.png")
+        rig.render(scene, paths[-1])
+    rig.pack_grid(paths, GLOW, COLS)
+    # Keep only the light: its colour at full strength, its brightness as opacity.
+    pixels = rig.read_pixels(GLOW)
+    peak = pixels[..., :3].max(axis=2)
+    pixels[..., :3] /= np.maximum(peak, 1e-4)[..., None]
+    pixels[..., 3] = np.clip(peak, 0, 1)
+    rig.write_pixels(GLOW, pixels)
+    print("SHRIMP glow", pixels.shape[1], "x", pixels.shape[0])
+elif STILL:
     clip, phase = STILL.split(":")
     build(walk_pose(float(phase)) if clip == "walk" else clean_pose(float(phase)))
     rig.render(scene, HERE / "_shrimp_still.png")

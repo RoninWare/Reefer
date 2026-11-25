@@ -15,11 +15,20 @@ from above), fins laid on as sheets, and a paint function that colours every ver
 The app draws a fish from sprites: for each of 26 headings (-60 degrees, swimming away, to 90,
 head on; it mirrors them for the rest) a body and a tail, the tail squashed toward its hinge
 as it beats. For headings from 0 up there are two more sets with the body bent, tail toward
-the near flank ("p2") or the far one ("m2"), shown while the fish turns. This script renders
-all of them, one unit to 100 px at the front of the tank, and writes for each species
-market/art/fish/<name>_atlas0.png and <name>.json (the "views" block of the scene).
+the near flank ("p2") or the far one ("m2"), shown while the fish turns. The pectoral fin on
+the near flank is not part of the body sprite: it is rendered on its own in a few poses of its
+stroke, which the app steps through, so the fish rows itself along.
 
---look renders a few headings of each fish, three times the size, to <name>_look.png instead.
+Each fish also has a second paint, its glow: what catches blue light in the dark (fin edges,
+the lines of its pattern, the ring of its eye). Every sprite is rendered again showing only
+that, into a sheet laid out exactly like the first.
+
+This script renders all of it, one unit to 100 px at the front of the tank, and writes for each
+species market/art/fish/<name>_atlas0.png, <name>_glow0.png and <name>.json (the "views" block
+of the scene).
+
+--look renders a few headings of each fish, three times the size, with their glow beneath,
+to <name>_look.png instead.
 """
 import json
 import math
@@ -86,18 +95,19 @@ def dots(x, y, size=0.3):
 
 
 class Mesh:
-    """Vertices, faces and a colour for every vertex."""
+    """Vertices, faces, and for every vertex its colour and what it gives off in the dark."""
 
     def __init__(self):
-        self.verts, self.faces, self.tint = [], [], []
+        self.verts, self.faces, self.tint, self.glow = [], [], [], []
 
     def grid(self, rows, closed=False):
-        """rows of (position, colour), all the same length; closed joins each row's ends."""
+        """rows of (position, colour, glow), all the same length; closed joins each row's ends."""
         n, m = len(self.verts), len(rows[0])
         for row in rows:
-            for position, colour in row:
+            for position, colour, glow in row:
                 self.verts.append(tuple(position))
                 self.tint.append(colour)
+                self.glow.append(glow)
         for i in range(1, len(rows)):
             for k in range(m if closed else m - 1):
                 j = (k + 1) % m
@@ -105,28 +115,36 @@ class Mesh:
 
     def build(self, scene, name, mat):
         obj = rig.add_mesh(scene, name, self.verts, self.faces, [mat], smooth=True)
-        layer = obj.data.attributes.new("tint", "FLOAT_COLOR", "POINT")
-        layer.data.foreach_set("color", [c for t in self.tint for c in (t[0], t[1], t[2], 1.0)])
+        for name, colours in (("tint", self.tint), ("glow", self.glow)):
+            layer = obj.data.attributes.new(name, "FLOAT_COLOR", "POINT")
+            layer.data.foreach_set("color", [c for t in colours for c in (t[0], t[1], t[2], 1.0)])
         return obj
 
 
 # ---- the fish --------------------------------------------------------------------------
 
 class Fish:
-    """Builds one species from its spec: a body, fins and eyes in `skin` and `eyes`, and the
-    tail fin on its own in `tail`. Everything is in units of 100 px, nose toward +x."""
+    """Builds one species from its spec and its shine: a body, fins and eyes in `skin` and
+    `eyes`, the tail fin on its own in `tail`, and the near pectoral fin in each pose of its
+    stroke in `pecs`. Everything is in units of 100 px, nose toward +x."""
 
-    def __init__(self, spec):
-        self.spec = spec
+    def __init__(self, spec, shine):
+        self.spec, self.shine = spec, shine
         self.top, self.bottom, self.width = (spline(spec[key]) for key in ("top", "bottom", "width"))
         tail = spec["tail"]
         self.lb = spec["length"] / 100 / (1 + tail["length"] * 0.92)        # body length, nose to tail joint
         self.skin, self.eyes, self.tail = Mesh(), Mesh(), Mesh()
+        self.pecs = [Mesh() for _ in shine["row"]]
         self.body()
-        for fin in spec["fins"]:
-            getattr(self, fin["kind"])(fin)
-        self.caudal(tail)
-        self.eye(spec["eye"])
+        rowed = False
+        for fin, glow in zip(spec["fins"], shine["fins"]):
+            if fin["kind"] == "paired" and not rowed:
+                rowed = True            # the first paired fin is the pectoral: the one that rows
+                self.paired(fin, glow or DARK, shine["row"])
+            else:
+                getattr(self, fin["kind"])(fin, glow or DARK)
+        self.caudal(tail, shine["tail"] or DARK)
+        self.eye(spec["eye"], shine["eye"])
         self.hinge = Vector((self.x(1.0), 0.0, self.mid(1.0)))
         self.rear = (1 - CENTRE) * self.lb + tail["length"] * self.lb
 
@@ -143,7 +161,7 @@ class Fish:
         return Vector((self.x(s), self.lb * self.width(s) * cos(a) * out, self.mid(s) + half * h))
 
     def body(self):
-        paint, rings, levels = self.spec["paint"], 240, 88
+        paint, glow, rings, levels = self.spec["paint"], self.shine["body"] or DARK, 240, 88
         # Round each flank from belly to back in even steps of height, so a pattern is as fine
         # there as it is along the body.
         loop = [(-1 + 2 * j / levels, 1) for j in range(levels)] + [(1 - 2 * j / levels, -1) for j in range(levels)]
@@ -155,14 +173,14 @@ class Fish:
             row = []
             for h, flank in loop:
                 z = self.mid(s) + half * h
-                row.append(((self.x(s), flank * wide * math.sqrt(1 - h * h), z), paint(s, h, z / self.lb)))
+                row.append(((self.x(s), flank * wide * math.sqrt(1 - h * h), z), paint(s, h, z / self.lb), glow(s, h, z / self.lb)))
             rows.append(row)
         self.skin.grid(rows, closed=True)
         n = len(self.skin.verts)
         self.skin.faces.append(tuple(range(around)))
         self.skin.faces.append(tuple(range(n - around, n)))
 
-    def median(self, fin):
+    def median(self, fin, glow):
         """A dorsal or anal fin: a sheet standing on the back (side 1) or hanging from the belly (-1)."""
         side, edge = fin.get("side", 1), self.top if fin.get("side", 1) > 0 else self.bottom
         s0, s1, height, sweep, paint = fin["from"], fin["to"], spline(fin["height"]), fin.get("sweep", 0.5), fin["paint"]
@@ -176,11 +194,11 @@ class Fish:
                 s = s0 + (s1 - s0) * t
                 tall = height(t) * self.lb
                 base = Vector((self.x(s), 0.0, self.lb * edge(s) - side * 0.012 * self.lb))
-                row.append((base + Vector((-sweep * tall * r, 0.0, side * tall * r)), paint(t, r)))
+                row.append((base + Vector((-sweep * tall * r, 0.0, side * tall * r)), paint(t, r), glow(t, r)))
             rows.append(row)
         self.skin.grid(rows)
 
-    def spines(self, fin):
+    def spines(self, fin, glow):
         """A row of separate spines, each trailing a narrow flag of skin (the lionfish's mane)."""
         side, edge = fin.get("side", 1), self.top if fin.get("side", 1) > 0 else self.bottom
         height, paint, count = spline(fin["height"]), fin["paint"], fin["count"]
@@ -195,11 +213,11 @@ class Fish:
                 r = i / 12
                 spine = base + Vector((-lean * tall * r, 0.0, side * tall * r))
                 flag = wide * (0.25 + 0.75 * sin(math.pi * min(1.0, r * 1.15)) ** 0.7) * (1 - r ** 6)
-                rows.append([(spine + Vector((0.004, 0, 0)), paint(t, r)), (spine - Vector((flag * 0.5, 0, 0)), paint(t, r)),
-                             (spine - Vector((flag, 0, 0.3 * flag * side)), paint(t, r))])
+                rows.append([(spine + Vector((0.004, 0, 0)), paint(t, r), glow(t, r)), (spine - Vector((flag * 0.5, 0, 0)), paint(t, r), glow(t, r)),
+                             (spine - Vector((flag, 0, 0.3 * flag * side)), paint(t, r), glow(t, r))])
             self.skin.grid(rows)
 
-    def fan(self, mesh, root, axis, spread_axis, fin, base=0.0):
+    def fan(self, mesh, root, axis, spread_axis, fin, glow, base=0.0):
         """A fan of rays from `root` along `axis`, opening along `spread_axis`."""
         half, length, shape, paint = math.radians(fin["spread"]), fin["length"] * self.lb, fin.get("shape", lambda a: 1.0), fin["paint"]
         across, out = 48, 36
@@ -211,35 +229,44 @@ class Fish:
                 a = -1 + 2 * j / across
                 ray = axis * cos(a * half) + spread_axis * sin(a * half)
                 start = root + spread_axis * (base * a)
-                row.append((start + ray * (length * shape(a) * r), paint(a, r)))
+                row.append((start + ray * (length * shape(a) * r), paint(a, r), glow(a, r)))
             rows.append(row)
         mesh.grid(rows)
 
-    def paired(self, fin):
-        """A pectoral or pelvic fin on each flank."""
-        out, down = math.radians(fin.get("out", 35)), math.radians(fin.get("down", 25))
-        for flank in (-1, 1):
+    def paired(self, fin, glow, stroke=None):
+        """A pectoral or pelvic fin on each flank. With a stroke (a list of (how far out, how
+        much lower) for each pose) the fin on the near flank is built once for every pose, each
+        in its own mesh, and the far one is left at rest."""
+        def build(mesh, flank, reach=1.0, lower=0.0):
+            out, down = math.radians(fin.get("out", 35) * reach), math.radians(fin.get("down", 25) + lower)
             root = self.at(fin["at"][0], fin["at"][1], out=0.92)
             root.y *= flank
             axis = Vector((-cos(out) * cos(down), flank * sin(out), -sin(down))).normalized()
             spread = Vector((-sin(down) * 0.6, flank * 0.25, cos(down))).normalized()
             spread = (spread - axis * spread.dot(axis)).normalized()
-            self.fan(self.skin, root, axis, spread, fin, base=fin.get("base", 0.02) * self.lb)
+            self.fan(mesh, root, axis, spread, fin, glow, base=fin.get("base", 0.02) * self.lb)
 
-    def caudal(self, fin):
+        build(self.skin, 1)
+        if stroke:
+            for mesh, (reach, lower) in zip(self.pecs, stroke):
+                build(mesh, -1, reach, lower)        # -1: the flank toward the glass
+        else:
+            build(self.skin, -1)
+
+    def caudal(self, fin, glow):
         root = Vector((self.x(1.0) + 0.02 * self.lb, 0.0, self.mid(1.0)))
         base = self.lb * (self.top(1.0) - self.bottom(1.0)) / 2 * 0.95
-        self.fan(self.tail, root, Vector((-1, 0, 0)), Vector((0, 0, 1)), fin, base=base)
+        self.fan(self.tail, root, Vector((-1, 0, 0)), Vector((0, 0, 1)), fin, glow, base=base)
 
-    def eye(self, eye):
+    def eye(self, eye, ring):
         radius = eye["r"] * self.lb
         for flank in (-1, 1):
             centre = self.at(eye["at"][0], eye["at"][1], out=0.82)
             centre.y *= flank
             rows = []
             for depth, wide in ((-0.5, 1.0), (0.1, 0.97), (0.36, 0.78), (0.5, 0.5), (0.56, 0.22), (0.58, 0.0)):
-                colour = eye["pupil"] if wide < 0.6 else eye["iris"]
-                rows.append([((centre.x + radius * wide * cos(TAU * k / 20), centre.y + flank * radius * depth, centre.z + radius * wide * sin(TAU * k / 20)), colour)
+                colour, glow = (eye["pupil"], (0, 0, 0)) if wide < 0.6 else (eye["iris"], ring if wide < 0.99 else (0, 0, 0))
+                rows.append([((centre.x + radius * wide * cos(TAU * k / 20), centre.y + flank * radius * depth, centre.z + radius * wide * sin(TAU * k / 20)), colour, glow)
                              for k in range(20)])
             self.eyes.grid(rows, closed=True)
 
@@ -436,12 +463,111 @@ def dottyback():
                       dict(kind="paired", at=(0.26, -0.97), length=0.16, spread=14, out=10, down=55, paint=lambda a, r: rays(gold, a, 6))])
 
 
+# ---- what each fish gives off in the dark, and how it rows --------------------------------
+
+def DARK(*_):
+    return (0.0, 0.0, 0.0)
+
+
+def lit(colour, amount):
+    return tuple(c * amount for c in colour)
+
+
+def band(colour, lo, hi, soft=0.05):
+    """A fin glow: a line of colour between two distances from the fin's root."""
+    return lambda a, r: lit(colour, smooth(lo - soft, lo, r) * smooth(hi + soft, hi, r))
+
+
+ELECTRIC, AQUA, LEMON = (0.15, 0.6, 1.0), (0.1, 1.0, 0.75), (1.0, 0.85, 0.1)
+STROKE = [(0.3, -6), (1.0, 0), (2.0, 8)]        # a pectoral's stroke: folded back, at rest, spread
+
+
+def tang_shine():
+    def body(s, h, z):
+        ring = math.hypot((s - 0.56) / 0.2, (h - 0.06) / 0.44)
+        return lit(ELECTRIC, smooth(0.88, 0.96, ring) * smooth(1.05, 0.99, ring) * smooth(0.3, 0.34, s))
+
+    line = band(ELECTRIC, 0.7, 0.8)
+    return dict(body=body, eye=(0.3, 0.6, 1.0), row=STROKE,
+                # A faint wash over the yellow of the tail, its rays brighter, its trailing edge brightest.
+                tail=lambda a, r: lit(LEMON, smooth(0.64, 0.56, abs(a) - 0.1 * r)
+                                      * (0.2 + 0.22 * smooth(0.2, 0.9, sin(TAU * a * 4.5)) * smooth(0.2, 0.6, r) + 0.6 * smooth(0.74, 0.97, r))),
+                fins=[line, line, lambda a, r: lit(LEMON, smooth(0.78, 1.0, r)), None])
+
+
+def surgeon_shine():
+    def body(s, h, z):
+        wave = sin(TAU * (z * 23 + 0.1 * sin(s * 9)))
+        return lit(ELECTRIC, smooth(-0.4, -0.62, wave) * smooth(-0.5, -0.34, h))
+
+    return dict(body=body, eye=(1.0, 0.6, 0.1), row=STROKE,
+                tail=lambda a, r: lit(ELECTRIC, smooth(0.8, 0.86, abs(a))),
+                fins=[band(ELECTRIC, 0.86, 1.2), band(ELECTRIC, 0.86, 1.2), None, None])
+
+
+def mandarin_shine():
+    def body(s, h, z):
+        scrawl = sin(TAU * (6.2 * s + 0.85 * h + 0.75 * grain(s * 7.5, h * 2.2)))
+        return lit(mix(ELECTRIC, AQUA, smooth(0.0, 0.9, h)), 0.9 * smooth(0.1, -0.05, scrawl))
+
+    def fin(a, r):
+        ray = cos(a * 9 * math.pi) > 0.86 and r > 0.15
+        return lit(ELECTRIC, max(smooth(0.82, 0.88, r), 0.8 if ray else 0.0))
+
+    return dict(body=body, eye=(1.0, 0.3, 0.05), row=[(0.6, -5), (1.0, 0), (1.5, 6)], tail=fin, fins=[fin, fin, fin, fin, fin])
+
+
+def lionfish_shine():
+    frost = (0.7, 0.85, 1.0)
+
+    def body(s, h, z):
+        stripe = sin(TAU * (s * 13 + 0.3 * grain(s * 6, h * 3) + 0.12 * h))
+        return lit(frost, 0.7 * smooth(-0.14, -0.26, stripe) * smooth(-0.44, -0.32, stripe))      # the edge of each pale band
+
+    def banded(a, r):
+        wave = sin(TAU * r * 5)
+        return lit(frost, max(0.5 * smooth(-0.2, -0.32, wave) * smooth(-0.5, -0.38, wave), smooth(0.88, 0.95, r)))
+
+    def veil(a, r):
+        return lit(frost, max(0.3 * smooth(0.75, 0.92, cos(a * 14 * math.pi)) * smooth(0.1, 0.4, r), 0.8 * smooth(0.9, 0.97, r)))
+
+    return dict(body=body, eye=(1.0, 0.5, 0.3), row=[(0.85, -3), (1.2, 5)], tail=veil, fins=[banded, veil, veil, banded, banded])
+
+
+def damsel_shine():
+    def body(s, h, z):
+        return lit(ELECTRIC, 0.8 * smooth(0.2, 0.36, cells(s * 17, z * 17)) * smooth(-0.7, -0.1, h))        # a spark in each cell of the net
+
+    def fin(a, r):
+        return lit(ELECTRIC, max(0.25 * smooth(0.6, 0.9, cos(a * 20 * math.pi)), smooth(0.84, 0.92, r)))
+
+    return dict(body=body, eye=(0.6, 0.85, 1.0), row=STROKE, tail=fin, fins=[fin, fin, None, band(AQUA, 0.7, 1.2)])
+
+
+def dottyback_shine():
+    lime = (0.85, 1.0, 0.1)
+
+    def body(s, h, z):
+        lines = smooth(0.4, 0.9, sin(TAU * z * 30)) * smooth(0.2, 0.45, s)
+        return lit(lime, max(0.9 * lines, 0.25 * smooth(0.5, 0.9, s + 0.1 * h)))
+
+    def tail(a, r):
+        return lit(lime, max(0.3, 0.5 * smooth(0.6, 0.9, cos(a * 14 * math.pi)), smooth(0.86, 0.94, r)))
+
+    return dict(body=body, eye=(0.2, 0.7, 1.0), row=STROKE, tail=tail,
+                fins=[band((0.6, 0.8, 1.0), 0.72, 1.2), band(lime, 0.75, 1.2), None, band(lime, 0.6, 1.2)])
+
+
 SPECIES = {"tang": tang, "surgeon": surgeon, "mandarin": mandarin, "lionfish": lionfish, "damsel": damsel, "dottyback": dottyback}
+SHINE = {"tang": tang_shine, "surgeon": surgeon_shine, "mandarin": mandarin_shine, "lionfish": lionfish_shine, "damsel": damsel_shine,
+         "dottyback": dottyback_shine}
 
 # ---- stage -----------------------------------------------------------------------------
 PX = 300 if LOOK else 100
-scene = rig.reset(samples=40 if LOOK else 72)
-rig.tank_light(scene, key=3.0, sky=0.8, sand=0.6)
+SAMPLES = 40 if LOOK else 72
+scene = rig.reset(samples=SAMPLES)
+sun = rig.tank_light(scene, key=3.0, sky=0.8, sand=0.6)
+water = next(node for node in scene.world.node_tree.nodes if node.type == "BACKGROUND").inputs["Strength"]
 cam = rig.camera(scene, elevation=0)
 cam.location = (0, -30, 0)
 
@@ -453,6 +579,11 @@ g.to("Emission Strength", 0.08)
 g.bump(g.noise(g.coords(), scale=90, detail=2).outputs["Fac"], strength=0.12, distance=0.004)
 EYE = rig.material("Fish eye", (0.01, 0.01, 0.01), 0.05, Coat_Weight=1.0)
 rig.Graph(EYE).to("Base Color", rig.Graph(EYE).attribute("tint").outputs["Color"])
+# In the dark a fish shows only its glow paint, and hides whatever of it lies behind.
+GLOW = rig.material("Fish glow", (0, 0, 0), 1.0, Specular_IOR_Level=0.0)
+g = rig.Graph(GLOW)
+g.to("Emission Color", g.attribute("glow").outputs["Color"])
+g.to("Emission Strength", 1.0)
 
 
 def pose(objects, shapes, heading):
@@ -463,34 +594,49 @@ def pose(objects, shapes, heading):
         obj.rotation_euler.z = -math.radians(heading)
 
 
-def shot(path, show, hide):
-    for obj in show:
-        obj.hide_render = False
-    for obj in hide:
-        obj.hide_render = True
+def shots(path, objects, show):
+    """Two pictures of the objects in `show`: as they look lit, and their glow alone."""
+    for obj in objects:
+        obj.hide_render = obj not in show
     rig.render(scene, path)
-    return rig.read_pixels(path)
+    lit_up = rig.read_pixels(path)
+    paints = [obj.data.materials[0] for obj in show]
+    for obj in show:
+        obj.data.materials[0] = GLOW
+    sun.hide_render, water.default_value, scene.cycles.samples = True, 0.0, 10
+    rig.render(scene, path)
+    glow = rig.read_pixels(path)
+    sun.hide_render, water.default_value, scene.cycles.samples = False, 1.0, SAMPLES
+    for obj, paint in zip(show, paints):
+        obj.data.materials[0] = paint
+    # Keep only the light: its colour at full strength, its brightness as opacity.
+    peak = glow[..., :3].max(axis=2)
+    glow[..., :3] /= np.maximum(peak, 1e-4)[..., None]
+    glow[..., 3] = np.clip(peak, 0, 1)
+    return lit_up, glow
 
 
-def cut(pixels):
-    """The picture cropped to what is in it: (crop, left, top)."""
+def cut(pixels, glow):
+    """The picture cropped to what is in it, and its glow cropped the same: (crop, glow, left, top)."""
     solid = pixels[..., 3] > 2 / 255
     if not solid.any():
-        return pixels[:2, :2] * 0, 0, 0
+        return pixels[:2, :2] * 0, glow[:2, :2] * 0, 0, 0
     ys, xs = np.flatnonzero(solid.any(axis=1)), np.flatnonzero(solid.any(axis=0))
-    return pixels[ys[0]:ys[-1] + 1, xs[0]:xs[-1] + 1], int(xs[0]), int(ys[0])
+    box = (slice(ys[0], ys[-1] + 1), slice(xs[0], xs[-1] + 1))
+    return pixels[box], glow[box], int(xs[0]), int(ys[0])
 
 
 for name, make in SPECIES.items():
     if ONLY not in (None, name):
         continue
-    fish = Fish(make())
-    objects = [fish.skin.build(scene, name, SKIN), fish.eyes.build(scene, name + " eyes", EYE), fish.tail.build(scene, name + " tail", SKIN)]
-    body, tail = objects[:2], objects[2:]
+    fish = Fish(make(), SHINE[name]())
+    meshes = [fish.skin, fish.eyes, fish.tail, *fish.pecs]
+    objects = [mesh.build(scene, f"{name} {i}", EYE if mesh is fish.eyes else SKIN) for i, mesh in enumerate(meshes)]
+    body, tail, pecs = objects[:2], objects[2:3], objects[3:]
     shapes, hinges = {}, {}
     for key, angle in (("", 0.0), ("p2", BEND), ("m2", -BEND)):
         bend = bender(fish.rear, angle) if angle else (lambda p: p)
-        shapes[key] = [np.array([c for v in mesh.verts for c in bend(Vector(v))], dtype=np.float32) for mesh in (fish.skin, fish.eyes, fish.tail)]
+        shapes[key] = [np.array([c for v in mesh.verts for c in bend(Vector(v))], dtype=np.float32) for mesh in meshes]
         hinges[key] = bend(fish.hinge)
     # One frame for every view: wide enough for the fish at any heading and in any shape.
     reach = max(float(np.hypot(c[0::3], c[1::3]).max()) for group in shapes.values() for c in group)
@@ -501,50 +647,66 @@ for name, make in SPECIES.items():
     frame = OUT / "_view.png"
 
     if LOOK:
-        strip = np.zeros((tall, width * 5, 4), dtype=np.float32)
+        strip = np.zeros((tall * 2, width * 5, 4), dtype=np.float32)
         for i, (key, heading) in enumerate((("", 0), ("", 44), ("", 90), ("", -50), ("p2", 24))):
             pose(objects, shapes[key], heading)
-            strip[:, i * width:(i + 1) * width] = shot(frame, objects, [])
+            strip[:tall, i * width:(i + 1) * width], strip[tall:, i * width:(i + 1) * width] = shots(frame, objects, body + tail + pecs[i % len(pecs):][:1])
         rig.write_pixels(OUT / f"{name}_look.png", strip)
     else:
         sprites, views = [], {"": [], "p2": [], "m2": []}
+
+        def sprite(show):
+            """Render the objects in `show`, keep the sprite and its glow, and return (index, x, y):
+            which sprite it is and where the fish's centre lies in it."""
+            crop, glow, left, top = cut(*shots(frame, objects, show))
+            sprites.append((crop, glow))
+            return len(sprites) - 1, width / 2 - left, tall / 2 - top
+
         for key in views:
-            for heading in (DEG if not key else DEG[BEND_FROM:]):
+            for n, heading in enumerate(DEG if not key else DEG[BEND_FROM:]):
                 pose(objects, shapes[key], heading)
                 turn = math.radians(-heading)
                 hinge = hinges[key]
-                hx, hy = (hinge.x * cos(turn) - hinge.y * sin(turn)) * PX, -hinge.z * PX
-                view = []
-                for show, hide in ((body, tail), (tail, body)):
-                    crop, left, top = cut(shot(frame, show, hide))
-                    view.append((len(sprites), width / 2 - left, tall / 2 - top))
-                    sprites.append(crop)
-                views[key].append((view, hx, hy))
+                view = {"hinge": ((hinge.x * cos(turn) - hinge.y * sin(turn)) * PX, -hinge.z * PX), "body": sprite(body), "tail": sprite(tail)}
+                # The pectoral is ahead of where the body bends, so the bent sets use the straight set's.
+                view["pecs"] = [sprite([pec]) for pec in pecs] if not key else views[""][BEND_FROM + n]["pecs"]
+                views[key].append(view)
         # Pack the sprites onto shelves, tallest first.
-        sheet_w = 2048 if sum(s.shape[0] * s.shape[1] for s in sprites) > 900_000 else 1024
+        sheet_w = 2048 if sum(c.shape[0] * c.shape[1] for c, _ in sprites) > 900_000 else 1024
         placed, x, y, shelf = {}, 0, 0, 0
-        for i in sorted(range(len(sprites)), key=lambda i: -sprites[i].shape[0]):
-            h, w = sprites[i].shape[:2]
+        for i in sorted(range(len(sprites)), key=lambda i: -sprites[i][0].shape[0]):
+            h, w = sprites[i][0].shape[:2]
             if x + w > sheet_w:
                 x, y, shelf = 0, y + shelf + 2, 0
             placed[i] = (x, y)
             x, shelf = x + w + 2, max(shelf, h)
-        sheet = np.zeros((y + shelf, sheet_w, 4), dtype=np.float32)
-        for i, sprite in enumerate(sprites):
-            px, py = placed[i]
-            sheet[py:py + sprite.shape[0], px:px + sprite.shape[1]] = sprite
-        rig.write_pixels(OUT / f"{name}_atlas0.png", sheet)
+        sheet_h = y + shelf + (y + shelf) % 2
+        for which, target in ((0, f"{name}_atlas0.png"), (1, f"{name}_glow0.png")):
+            sheet = np.zeros((sheet_h, sheet_w, 4), dtype=np.float32)
+            for i, pair in enumerate(sprites):
+                px, py = placed[i]
+                sheet[py:py + pair[which].shape[0], px:px + pair[which].shape[1]] = pair[which]
+            rig.write_pixels(OUT / target, sheet)
+
+        def where(i):
+            return [*placed[i], sprites[i][0].shape[1], sprites[i][0].shape[0]]
 
         def rows(key):
+            """[body x, y in its sprite, tail x, y, hinge x, y, page, body rect, page, tail rect,
+            pectoral poses, then for each pose its rect and the centre's x, y in it]"""
             out = []
-            for ((b, bx, by), (t, tx, ty)), hx, hy in views[key]:
-                out.append([round(bx, 1), round(by, 1), round(tx, 1), round(ty, 1), round(hx, 1), round(hy, 1),
-                            0, *placed[b], sprites[b].shape[1], sprites[b].shape[0], 0, *placed[t], sprites[t].shape[1], sprites[t].shape[0]])
+            for view in views[key]:
+                (b, bx, by), (t, tx, ty) = view["body"], view["tail"]
+                row = [round(bx, 1), round(by, 1), round(tx, 1), round(ty, 1), round(view["hinge"][0], 1), round(view["hinge"][1], 1),
+                       0, *where(b), 0, *where(t), len(view["pecs"])]
+                for i, cx, cy in view["pecs"]:
+                    row += [*where(i), round(cx, 1), round(cy, 1)]
+                out.append(row)
             return out
 
         block = {"deg": DEG, "pages": 1, "v": rows(""), "bend": {"from": BEND_FROM, "sets": {"p2": rows("p2"), "m2": rows("m2")}}}
         (OUT / f"{name}.json").write_text(json.dumps(block, separators=(",", ":")) + "\n")
-        print("FISH", name, "sheet", sheet.shape[1], "x", sheet.shape[0], "from", len(sprites), "sprites")
+        print("FISH", name, "sheet", sheet_w, "x", sheet_h, "from", len(sprites), "sprites")
     frame.unlink(missing_ok=True)
     for obj in objects:
         bpy.data.meshes.remove(obj.data)

@@ -173,6 +173,10 @@ sub PanFrame(s as object, screen as object, t as float)
     end while
     DrawMotes(s, screen, s.motesNear)
     if s.night > 0 then screen.DrawRect(0, 0, 1920, 1080, s.nightRgba)
+    ' What glows goes over the night's dark: the corals, then the fish and the shrimp.
+    ReefGlow(s, screen, t)
+    FishGlow(s, screen, t)
+    ShrimpGlow(s, screen, t)
     ' Bulbs and firelight go over the night tint, so they shine in a dark tank.
     ChristmasNight(s, screen, t)
 end sub

@@ -13,15 +13,18 @@ of app/scenes/tank.json that depends on where things are:
   * the Christmas set at its places in layout.json, the light strings and their bulbs,
     and the embers that glow in the hearth in Night Lite
   * the fish and their sprite sheets, the shrimp's routes and the light shafts
+  * what glows at night: each structure's glow, split in two, and the fish's and shrimp's glow
+    sheets, all at half size
 
 Running it twice changes nothing more: it works from market/art and from where the scene
 says things are now.
 """
 import json
+import random
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 ART, APP = HERE / "art", HERE / "app"
@@ -53,6 +56,29 @@ def occupancy(sprites):
     return ["".join("#" if cell else "." for cell in row) for row in wide]
 
 
+def halved(glow):
+    """A glow picture at half size. Its colours are weighed by how bright they are, so that dark
+    surroundings do not muddy them."""
+    return glow.convert("RGBa").resize((max(1, glow.width // 2), max(1, glow.height // 2)), Image.Resampling.BOX).convert("RGBA")
+
+
+def reef_glow(name, glow):
+    """A structure's glow as two half-size pictures that share it between them in soft patches,
+    so the app can brighten one while it dims the other, each with a little halo round the light."""
+    light = glow.convert("RGBa")
+    halo = [ImageChops.lighter(band, band.filter(ImageFilter.GaussianBlur(4)).point(lambda v: v * 0.55)) for band in light.split()]
+    light = Image.merge("RGBa", halo)
+    rng = random.Random(name)
+    coarse = Image.new("L", (glow.width // 110 + 2, glow.height // 110 + 2))
+    coarse.putdata([rng.randrange(256) for _ in range(coarse.width * coarse.height)])
+    share = coarse.resize(glow.size, Image.Resampling.BICUBIC).point(lambda v: max(0, min(255, (v - 96) * 4)))
+    parts = []
+    for mask in (share, ImageChops.invert(share)):
+        part = Image.merge("RGBa", [ImageChops.multiply(band, mask) for band in light.split()])
+        parts.append(part.resize((glow.width // 2, glow.height // 2), Image.Resampling.BOX).convert("RGBA"))
+    return parts
+
+
 def main():
     layout = json.loads((ART / "layout.json").read_text())
     scene_path = APP / "scenes/tank.json"
@@ -76,6 +102,12 @@ def main():
         solid.append((sprite.getchannel("A"), at["x"], at["y"]))
     for name in GONE:
         (IMAGES / name).unlink(missing_ok=True)
+    # What each structure gives off at night, drawn over the dark.
+    scene["glow"] = []
+    for piece, name in zip(list(pieces), layout["structures"]):
+        for letter, part in zip("ab", reef_glow(name, Image.open(REEF / f"{name}_glow.png"))):
+            part.save(IMAGES / f"reef_{name}_glow_{letter}.png")
+        scene["glow"].append({"a": image(f"reef_{name}_glow_a.png"), "b": image(f"reef_{name}_glow_b.png"), "x": piece["x"], "y": piece["y"]})
 
     # The stone and the Christmas set. Pieces marked "front" are drawn after the light strings.
     def place(name, at, **marks):
@@ -157,6 +189,7 @@ def main():
 
     # Water surface, critters, fish.
     Image.open(ART / "surface_ripple.png").convert("RGB").save(IMAGES / "surface_ripple.jpg", quality=95)
+    halved(Image.open(ART / "shrimp_glow.png")).save(IMAGES / "shrimp_glow.png")
     scene["shrimp"]["routes"] = [{"pts": route["pts"], "shadow": route.get("shadow", False)} for route in layout["shrimp"]]
     scene["dusters"] = []
     scene.pop("starfish", None)
@@ -164,6 +197,7 @@ def main():
     scene["species"] = {}
     for name, ways in layout["fish"].items():
         Image.open(ART / f"fish/{name}_atlas0.png").save(IMAGES / f"{name}_atlas0.png")
+        halved(Image.open(ART / f"fish/{name}_glow0.png")).save(IMAGES / f"{name}_glow0.png")
         scene["species"][name] = {**ways, "views": json.loads((ART / f"fish/{name}.json").read_text())}
     scene["anemone"] = {"home": layout["haunt"]}        # where visiting fish with no haunt of their own gather
     scene["haze"] = layout["haze"]

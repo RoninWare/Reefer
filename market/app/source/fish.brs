@@ -136,7 +136,19 @@ function NewFishView(pages as object, v as object) as object
     pb = pages[v[6]] : pt = pages[v[11]]
     b = AtlasRegion(pb, v[7], v[8], v[9], v[10], v[0], v[1])
     t = AtlasRegion(pt, v[12], v[13], v[14], v[15], v[2] + v[4], v[3])
-    return { b: b, t: t, bx: v[0], by: v[1], tx: v[2], ty: v[3], hx: v[4], hy: v[5], w: v[9], v: v, bkx: pb.kx, bky: pb.ky, tkx: pt.kx, tky: pt.ky }
+    fv = { b: b, t: t, bx: v[0], by: v[1], tx: v[2], ty: v[3], hx: v[4], hy: v[5], w: v[9], v: v, bkx: pb.kx, bky: pb.ky, tkx: pt.kx, tky: pt.ky }
+    ' The store edition's fish row with their pectoral fins: after the tail, the view lists how
+    ' many poses of the near fin's stroke it has, then each pose's sprite [x, y, w, h] and where
+    ' the fish's center falls in it [cx, cy]. A pose is drawn like the body, about the center.
+    fv.p = invalid
+    if v.Count() > 16 and v[16] > 0
+        fv.p = []
+        for k = 0 to v[16] - 1
+            o = 17 + 6 * k
+            fv.p.Push(AtlasRegion(pb, v[o], v[o + 1], v[o + 2], v[o + 3], v[o + 4], v[o + 5]))
+        end for
+    end if
+    return fv
 end function
 
 ' A sprite's region of an atlas page (x, y, w, h in full-size pixels) with its origin moved to
@@ -186,6 +198,18 @@ sub SizeScratch(spr as object, puffs as boolean)
         for each e in [v[1], v[10] - v[1], v[3], v[15] - v[3]]
             if Abs(e) > ry then ry = Abs(e)
         end for
+        ' A pectoral fin spread wide can reach past the body.
+        if v.Count() > 16
+            for k = 0 to v[16] - 1
+                o = 17 + 6 * k
+                for each e in [v[o + 4], v[o + 2] - v[o + 4]]
+                    if Abs(e) > rx then rx = Abs(e)
+                end for
+                for each e in [v[o + 5], v[o + 3] - v[o + 5]]
+                    if Abs(e) > ry then ry = Abs(e)
+                end for
+            end for
+        end if
     end for
     kx = 1.05 * 1.25
     ky = 1.05
@@ -238,16 +262,47 @@ function DrawScratchTilted(s as object, screen as object, f as object, spr as ob
 end function
 
 function LoadFishViews(name as string, vc as object) as object
-    spr = { views: [], ang: [] }
-    for each d in vc.deg
-        spr.ang.Push(d * 3.14159265 / 180)
-    end for
     ' The sprites live packed in atlas pages (<name>_atlas<p>.png).
     pages = []
     for p = 0 to vc.pages - 1
         pg = LoadTexture("pkg:/images/" + name + "_atlas" + p.ToStr() + ".png")
         if pg = invalid then return invalid
         pages.Push(pg)
+    end for
+    return BuildFishViews(pages, vc)
+end function
+
+' Loads each species' glow sheet, after everything else in the tank.
+sub FishGlowInit(s as object)
+    for each name in s.sprites
+        spr = s.sprites[name]
+        spr.glow = LoadFishGlow(name, s.cfg.species[name].views)
+        if spr.glow <> invalid
+            spr.glow.bw = spr.bw : spr.glow.bh = spr.bh : spr.glow.tw = spr.tw
+        end if
+    end for
+    LogMemory("fish glow")
+end sub
+
+' A fish's glow: the same views cut from a second sheet (<name>_glow<p>.png) that holds only
+' what the fish gives off in the dark, laid out like the first at half its size. Invalid if
+' there is none, or no graphics memory for it.
+function LoadFishGlow(name as string, vc as object) as object
+    pages = []
+    for p = 0 to vc.pages - 1
+        tx = LoadTexture("pkg:/images/" + name + "_glow" + p.ToStr() + ".png")
+        if tx = invalid then return invalid
+        pages.Push({ bmp: tx.bmp, w: tx.w * 2, h: tx.h * 2, kx: tx.kx * 2, ky: tx.ky * 2 })
+    end for
+    glow = BuildFishViews(pages, vc)
+    SizeScratch(glow, false)
+    return glow
+end function
+
+function BuildFishViews(pages as object, vc as object) as object
+    spr = { views: [], ang: [] }
+    for each d in vc.deg
+        spr.ang.Push(d * 3.14159265 / 180)
     end for
     for each v in vc.v
         spr.views.Push(NewFishView(pages, v))
@@ -306,7 +361,7 @@ function NewFish(s as object, sp as object, spr as object, idx as integer) as ob
         size: 1.0
         cruise: sp.speed * RndRange(0.85, 1.15)
         big: false, followers: invalid, turnDir: 0, blockT: 0.0, leader: invalid, visiting: false, slot: invalid, wob: 0.0, visitAt: invalid
-        puff: 0.0, pmode: "none", ptime: 0.0, pcool: RndRange(40, 90)
+        puff: 0.0, pmode: "none", ptime: 0.0, pcool: RndRange(40, 90), row: Rnd(0) * 4
         radius: 0.5 * sp.sideLen
     }
     if sp.radius <> invalid then f.radius = sp.radius
@@ -518,6 +573,11 @@ sub FishUpdate(s as object, t as float, dt as float)
         a = 0.03 + 0.1 * Clamp(effort, 0, 1.5) + 0.04 * Clamp(f.turnRate / sp.turn, 0, 1)
         f.amp = f.amp + (a - f.amp) * Clamp(3 * dt, 0, 1)
         f.phase = f.phase + dt * 6.283 * sp.beat * (0.5 + 0.5 * Clamp(effort, 0, 2))
+        ' The pectoral fins row all the time, harder when the fish works: f.row counts poses.
+        rate = 5.0
+        if sp.row <> invalid then rate = sp.row
+        f.row = f.row + dt * rate * (0.6 + 0.4 * Clamp(effort, 0, 2))
+        if f.row > 4000 then f.row = f.row - 4000
 
         ' Cruisers well off-screen may jump to a new depth; nobody can see it.
         if f.leader = invalid and (f.x - s.camX < -120 or f.x - s.camX > 2040) and f.timer > 0 and Rnd(0) < 0.004
@@ -760,6 +820,13 @@ sub FishDrawAt(s as object, screen as object, f as object)
     tailK = 1 - f.amp * (0.5 + 0.5 * Cos(f.phase))
     sc = f.size * DepthScale(s, f.z)
     spr = f.spr
+    ' The glow pass (FishGlow) draws the fish again from its glow sheet, untinted, each fish
+    ' catching the light in its own time.
+    if s.glowA <> invalid
+        spr = spr.glow
+        if spr = invalid then return
+        col = &hFFFFFF00 + Int(s.glowA * (0.72 + 0.28 * Sin(s.glowT * 1.7 + f.id * 2.1)))
+    end if
     ' Heading to a rendered view: facing right (cos >= 0) directly; facing left as the mirror
     ' of the matching right-facing heading.
     ' The heading drawn: where the fish faces (a pair's male faces the female), else its course.
@@ -852,7 +919,55 @@ sub DrawNormalView(s as object, screen as object, x as float, y as float, f as o
     if not away then DrawFishTail(screen, v, x, y, sx, sc, tailK, col, rot)
     screen.DrawTransformedObject(x, y, rot.th, sx * v.bkx, sc * v.bky, v.b, col)
     if away then DrawFishTail(screen, v, x, y, sx, sc, tailK, col, rot)
+    ' The near pectoral fin, over the body, in the pose its stroke has reached: out and back.
+    if v.p <> invalid
+        n = v.p.Count()
+        k = 0
+        if f.row <> invalid and n > 1 then k = Int(f.row) mod (2 * n - 2)
+        if k >= n then k = 2 * n - 2 - k
+        screen.DrawTransformedObject(x, y, rot.th, sx * v.bkx, sc * v.bky, v.p[k], col)
+    end if
 end sub
+
+' After the night's dark has been laid over the tank: every fish that shows draws its glow.
+' Fish in front of the reef always show. One behind it shows only in open water, since its
+' glow would otherwise shine through the coral that hides it.
+sub FishGlow(s as object, screen as object, t as float)
+    a = Int(215 * s.night)
+    if s.nightLite then a = 235
+    if a < 8 then return
+    s.glowA = a
+    s.glowT = t
+    for each f in s.fish
+        if f.spr.glow <> invalid
+            if f.z >= s.cfg.fgZ or not OverCoral(s, f) then FishDraw(s, screen, f)
+        end if
+    end for
+    s.glowA = invalid
+end sub
+
+' True when any of fish f lies over coral or rock on the coral map.
+function OverCoral(s as object, f as object) as boolean
+    if s.coral = invalid then return false
+    c = s.coral
+    sc = f.size * DepthScale(s, f.z)
+    hl = 0.5 * sc * f.spr.bw + 0.5 * sc * f.spr.tw
+    hh = 0.5 * sc * f.spr.bh
+    nr = c.rows.Count()
+    gy0 = Int((f.y - hh) / c.cell) : gy1 = Int((f.y + hh) / c.cell)
+    gx0 = Int((f.x - hl) / c.cell) : gx1 = Int((f.x + hl) / c.cell)
+    for gy = gy0 to gy1
+        if gy >= 0 and gy < nr
+            row = c.rows[gy]
+            for gx = gx0 to gx1
+                if gx >= 0 and gx < row.Count()
+                    if row[gx] then return true
+                end if
+            end for
+        end if
+    end for
+    return false
+end function
 
 ' A view's tail, hinged at its joint and beating (squashed toward the hinge). sx is negative
 ' for a mirrored (left-facing) fish. The hinge turns with the body's tilt (rot: degrees, and

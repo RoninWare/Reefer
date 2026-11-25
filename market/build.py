@@ -11,13 +11,14 @@ only if its file is 4 MB or less (certification criterion 3.7), so the build pac
     (libimagequant, as Reef Glass's own pictures were)
   * every PNG is then packed again with zopfli, which is slow but loses nothing
   * the JPEGs named in PICTURES are saved again at the quality given there; the rest go in
-    as they are
+    as they are. PICTURES also gives some PNGs a smaller palette
   * the scene is written without spaces
 
 The build fails if the package comes out over the limit. Packed pictures are kept in
 build/market-cache, keyed by the picture and its settings, so only the first build is slow.
 """
 import argparse
+import fnmatch
 import hashlib
 import json
 from io import BytesIO
@@ -34,11 +35,20 @@ APP = HERE / "app"
 CACHE = ROOT / "build/market-cache"
 LIMIT = 4_000_000       # bytes; Roku says "4 MB"
 # Per picture: "quality" for a JPEG; for a PNG, "colors" in its palette and "dither" (0 to 1).
+# The first pattern a picture's name matches is used.
 PICTURES = {
-    "wide_bg0.jpg": {"quality": 75},
-    "wide_bg1.jpg": {"quality": 75},
+    "wide_bg*.jpg": {"quality": 75},
     "surface_ripple.jpg": {"quality": 86},
+    # Glow pictures are a few pure colours fading out: a small palette holds them, undithered.
+    "reef_*_glow_?.png": {"colors": 64, "dither": 0.0},
+    "*_glow*.png": {"colors": 32, "dither": 0.0},
+    # The lionfish's sheet is the largest picture, and is only reds, browns and creams.
+    "lionfish_atlas0.png": {"colors": 128, "dither": 0.5},
 }
+
+
+def settings_for(name):
+    return next((settings for pattern, settings in PICTURES.items() if fnmatch.fnmatch(name, pattern)), {})
 
 
 def cached(data, settings, suffix, make):
@@ -75,7 +85,7 @@ def contents():
         if not path.is_file():
             continue
         name, data = path.relative_to(APP).as_posix(), path.read_bytes()
-        settings = PICTURES.get(path.name, {})
+        settings = settings_for(path.name)
         if name.endswith(".png"):
             data = cached(data, settings, ".png", lambda source: pack_png(source, **settings))
         elif name.endswith(".jpg") and settings:

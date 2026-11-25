@@ -56,6 +56,7 @@ The tank and its reef are our own, rendered in Blender:
 
 ```sh
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_reefscape.py
+blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_reefscape.py -- --glow
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_surface.py
 python market/strings.py
 blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_lights.py
@@ -73,6 +74,16 @@ python market/build.py
 
 Not yet in this reef: an everyday moray (the cave is empty when the Christmas reef is off), feather dusters, a starfish and an anemone.
 
+## Glow at night
+
+At night and in Night Lite the reef fluoresces, as corals do under a tank's blue light. Everything that glows has a second picture holding only its light, drawn over the night's dark so that it shines out of it:
+
+- **Corals.** `create_reefscape.py -- --glow` renders each structure again with every material swapped for its glow: the growing tips of branching and table corals and of sea fans, the mouths of zoanthids and star corals, the grooves of brain corals, the rims of plates. `reef.py` splits each structure's glow into two half-size pictures in soft patches, and the app brightens one while it dims the other.
+- **Fish.** Each fish has a glow paint beside its colours in `create_fish.py` (fin edges, the lines of its pattern, the ring of its eye), baked into `<name>_glow0.png`, a sheet laid out like its sprites.
+- **Shrimp.** `authoring/shrimp/create_shrimp.py -- --glow market/art/shrimp_glow.png` renders the shrimp's red lines, leg joints, feelers and eyes.
+
+A fish behind the reef shows its glow only in open water, since it would otherwise shine through the coral that hides it. The glow pictures load last, so a Roku short of graphics memory goes without them first. The code is in `app/source/glow.brs`, `fish.brs` and `shrimp.brs`.
+
 ## The fish
 
 Six species, modelled and painted in `authoring/create_fish.py`: a regal tang, a lined surgeonfish, a mandarinfish, a lionfish, a leopard damsel and a dottyback.
@@ -83,9 +94,9 @@ blender -b --factory-startup --python-exit-code 1 -P market/authoring/create_fis
 python market/reef.py
 ```
 
-`--look` renders a few headings of each fish at three times the size into `art/fish/<name>_look.png`, for a close look while changing a model; `--only <name>` does one species. The full run bakes, for each species, a body and a tail sprite at 26 headings plus two sets with the body bent for turns, into `art/fish/<name>_atlas0.png` with the positions in `<name>.json`. It takes about five minutes.
+`--look` renders a few headings of each fish at three times the size into `art/fish/<name>_look.png`, for a close look while changing a model; `--only <name>` does one species. The full run bakes, for each species, a body and a tail sprite at 26 headings plus two sets with the body bent for turns, the near pectoral fin in each pose of its stroke, and the glow of every one of those sprites. They go into `art/fish/<name>_atlas0.png` and `<name>_glow0.png`, with the positions in `<name>.json`. It takes about a quarter of an hour.
 
-How each species behaves (how many, how fast, whether it schools or pairs, where it likes to hover) is under `fish` in `art/layout.json`. The app's fish code is unchanged: it turns a fish through its headings, bends it in a turn and beats its tail by squashing the tail sprite toward its hinge.
+How each species behaves (how many, how fast, whether it schools or pairs, where it likes to hover) is under `fish` in `art/layout.json`. The app turns a fish through its headings, bends it in a turn, beats its tail by squashing the tail sprite toward its hinge, and rows it along by stepping the near pectoral fin through its stroke, out and back. `row` in the layout sets how fast a species rows, in poses a second.
 
 ## Reef Glass
 

@@ -18,6 +18,7 @@ them are in the repository's `authoring/` folder, or in `market/` where noted.
 | `wide_bg*.jpg`, `reef_arch.png`, `reef_bommie.png`, `reef_grotto.png` | original procedural Blender scene: sand, water, rock and corals | `market/authoring/create_reefscape.py`, `market/authoring/reef_kit.py`, laid in by `market/reef.py` |
 | `surface_ripple.jpg` | that scene mirrored in the water's surface and rippled | `market/authoring/create_surface.py` |
 | `tang_atlas0.png`, `surgeon_atlas0.png`, `mandarin_atlas0.png`, `lionfish_atlas0.png`, `damsel_atlas0.png`, `dottyback_atlas0.png` | original procedural Blender models of six reef fish, rendered at 26 headings | `market/authoring/create_fish.py` |
+| `reef_*_glow_a.png`, `reef_*_glow_b.png`, `*_glow0.png`, `shrimp_glow.png` | the same models rendered showing only what they give off in the dark | `market/authoring/create_reefscape.py`, `market/authoring/create_fish.py`, `authoring/shrimp/create_shrimp.py`, `market/reef.py` |
 | `ray.png`, `mote.png`, `puff.png` | drawn from formulas | `market/light.py` |
 | `xmas_embers.png` | the glowing parts of the fireplace's own picture: the cracks in the logs and the bed under the grate | `market/reef.py` |
 | `santa_cave.png` | the cave's darkness, cut from our own rendered reef and faded out toward the cave mouth | `market/reef.py` |

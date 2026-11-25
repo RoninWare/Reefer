@@ -12,6 +12,9 @@ kinds of picture come out of it, into market/art/reefscape:
   preview.jpg   the structures laid over the plate, to look at
 
 --draft renders with few samples. --only <name> renders one structure and reuses the rest.
+--glow renders, for each structure already rendered, <name>_glow.png: only what it gives off
+under blue light at night (coral tips, polyps' mouths, the grooves of brain corals), in the
+same frame as its picture.
 """
 import json
 import math
@@ -30,6 +33,7 @@ OUT = Path(__file__).resolve().parents[1] / "art/reefscape"
 OUT.mkdir(parents=True, exist_ok=True)
 ARGS = rig.script_args()
 DRAFT = "--draft" in ARGS
+GLOW = "--glow" in ARGS
 ONLY = ARGS[ARGS.index("--only") + 1] if "--only" in ARGS else None
 WIDTH, HEIGHT, DEPTH = 34.0, 10.8, 22.0     # the tank, in units; the plate is WIDTH x HEIGHT hundred px
 ELEVATION = 9.0
@@ -419,6 +423,37 @@ def soften(path, haze=0.07, edge=28):
 
 
 built = {name: make() for name, make in STRUCTURES.items() if ONLY in (None, name)}
+
+if GLOW:
+    # What the reef gives off in the dark: the same structures with every material swapped for
+    # its glow, no light in the tank, and each picture cut to the box its structure was.
+    import numpy as np
+    glows = kit.glow_materials()
+    sun.hide_render = sand.hide_render = wall.hide_render = True
+    next(node for node in scene.world.node_tree.nodes if node.type == "BACKGROUND").inputs["Strength"].default_value = 0.0
+    scene.view_settings.gamma = 1.0
+    scene.cycles.samples = 24
+    scene.render.film_transparent = True
+    scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
+    for name, objects in built.items():
+        for other_objects in built.values():
+            for obj in other_objects:
+                obj.hide_render = other_objects is not objects
+        for obj in objects:
+            obj.data.materials[0] = glows[obj.data.materials[0].name]
+        at = json.loads((OUT / f"{name}.json").read_text())
+        rig.crop_to(scene, (at["x"], at["y"], at["x"] + at["w"], at["y"] + at["h"]))
+        rig.render(scene, OUT / f"{name}_glow.png")
+        rig.uncrop(scene)
+        # Keep only the light: its colour at full strength, its brightness as opacity.
+        pixels = rig.read_pixels(OUT / f"{name}_glow.png")
+        peak = pixels[..., :3].max(axis=2)
+        pixels[..., :3] /= np.maximum(peak, 1e-4)[..., None]
+        pixels[..., 3] = np.clip(peak, 0, 1)
+        rig.write_pixels(OUT / f"{name}_glow.png", pixels)
+        print("GLOW", name, pixels.shape[1], "x", pixels.shape[0], "lit", round(float((peak > 0.1).mean()) * 100, 1), "%")
+    raise SystemExit(0)
 
 if ONLY is None:
     # The plate: no reef in it.

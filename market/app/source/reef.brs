@@ -32,6 +32,10 @@ function ReefInit(cfg as object, opts as object) as object
     ShrimpInit(s)
     ChristmasInit(s)
     SantaMorayInit(s)
+    ' The glow sheets load last of all: they are the first thing to go without.
+    GlowInit(s)
+    FishGlowInit(s)
+    ShrimpGlowInit(s)
     LogMemory("loaded")
     ' Each mote sways with one of four shared phases (four Sin calls a frame, not one each).
     for i = 1 to cfg.motes.count
