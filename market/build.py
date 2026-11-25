@@ -40,6 +40,7 @@ PICTURES = {
     "wide_bg*.jpg": {"quality": 75},
     "surface_ripple.jpg": {"quality": 86},
     # Glow pictures are a few pure colours fading out: a small palette holds them, undithered.
+    "floor_glow.png": {"colors": 128, "dither": 1.0},        # soft light: it needs the steps between
     "reef_*_glow_?.png": {"colors": 64, "dither": 0.0},
     "*_glow*.png": {"colors": 32, "dither": 0.0},
     # The lionfish's sheet is the largest picture, and is only reds, browns and creams.

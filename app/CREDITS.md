@@ -9,7 +9,7 @@ that make them are in the repository's `authoring/` folder.
 |---|---|---|
 | `custom_plate_coral.png`, `custom_rellie_quartz.png` | original procedural Blender models | `authoring/create_*.py`, rendered by `authoring/export_sprite.py` |
 | `custom_tree.png` | original procedural Blender model: a spire of corals with lights, pearls, baubles and a sea star | `authoring/christmas/create_tree.py` |
-| `custom_fireplace.png`, `xmas_fire.png` | original procedural Blender model; the flames are an animated shader | `authoring/christmas/create_fireplace.py` |
+| `custom_fireplace.png`, `xmas_fire.png` | original procedural Blender model, with lights on its mantel and in its wreath; the flames are an animated shader | `authoring/christmas/create_fireplace.py` |
 | `custom_gifts_hearth.png`, `custom_gifts_tree.png` | original procedural Blender models | `authoring/christmas/create_gifts.py` |
 | `xmas_lights.png` | original procedural Blender model, draped along anchor points on the reef | `authoring/christmas/create_lights.py` |
 | `santa_moray.png` | original procedural Blender model, rebuilt and rendered for every pose | `authoring/christmas/create_santa_moray.py` |

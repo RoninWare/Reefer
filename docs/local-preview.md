@@ -69,6 +69,7 @@ Without `--overwrite` a script stops when its `.blend` already exists, so hand e
 `layout.json` places the pieces. A piece marked `front` stands before the reefs and is drawn after the anemone and the coral light strings; `behind` names a model it must be drawn before. The tree is `front` and `behind` the stone, and the stone is `front` in `authoring/placements.json` for the same reason. `rig.py` is the shared camera, tank lighting and mesh helpers. One Blender unit is 100 tank pixels.
 
 - **Placement.** `layout.json` gives the upper-left corner of the fireplace and gift sprites, and the height where chimney bubbles vanish at the surface.
+- **Fireplace lights.** The fireplace has a string of coloured bulbs along its mantel's garland and small white and yellow lights in its wreath. They are lit bulbs in its picture, and `fireplace.json` lists where each one is (`bulbs`: x, y, colour, twinkle group, glow size), so the app lays a twinkling glow over each as it does for the tree's.
 - **Lights.** `strings.json` lists each string's anchor points in tank pixels, where the wire rests on a coral, and the bulb spacing. The wire sags between anchors.
 - **Moray.** `create_santa_moray.py` rebuilds the eel for every frame from a pose. `-- --still pop:0.2` or `-- --still idle:0.5` renders one pose to `_still.png` for a quick look. The cave track, pop timing and idle loop are near the top and bottom of the script.
 

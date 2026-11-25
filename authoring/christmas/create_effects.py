@@ -3,7 +3,8 @@
     blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_effects.py
 
 Blender is used only for its bundled NumPy and PNG writer. Writes bubbles.png (two 40 px
-bubbles side by side) and glows.png (64 px cells: red, green, blue, amber, pink, then firelight).
+bubbles side by side) and glows.png (64 px cells: red, green, blue, amber, pink, firelight, then
+warm white).
 """
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import rig
 
-GLOW_COLORS = [(255, 70, 60), (70, 255, 110), (80, 150, 255), (255, 196, 70), (255, 105, 205), (255, 150, 60)]
+GLOW_COLORS = [(255, 70, 60), (70, 255, 110), (80, 150, 255), (255, 196, 70), (255, 105, 205), (255, 150, 60), (255, 236, 205)]
 
 
 def bubble(size, seed):
@@ -51,5 +52,5 @@ def glow(size, color, core=0.16, halo=0.42):
 
 rig.write_pixels(rig.HERE / "bubbles.png", np.concatenate([bubble(40, 0.0), bubble(40, 0.9)], axis=1))
 rig.write_pixels(rig.HERE / "glows.png", np.concatenate(
-    [glow(64, color) for color in GLOW_COLORS[:5]] + [glow(64, GLOW_COLORS[5], core=0.30, halo=0.62)], axis=1))
+    [glow(64, color) for color in GLOW_COLORS[:5]] + [glow(64, GLOW_COLORS[5], core=0.30, halo=0.62), glow(64, GLOW_COLORS[6])], axis=1))
 print("EFFECTS written")

@@ -11,7 +11,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | `manifest` | Title and version. |
 | `source/main.brs` | Selects the scene and its asset directory at launch and applies the season setting. |
 | `source/reef.brs` | Loads and updates the added modules after the reef and the fish. |
-| `source/pan.brs` | Draws the water surface, the anemone, the shrimp and the Christmas set, including a pass over the night tint. Pieces marked `front` are drawn after the anemone and the coral light strings. |
+| `source/pan.brs` | Draws the water surface, the anemone, the shrimp and the Christmas set. Pieces marked `front`, the critters and the near fish are drawn after the anemone, the coral light strings, the night's dark and the reef's glow, and take the dark as a tint of their own (`NightDim` in `source/reef.brs`), so the lights and the glow never show through them. |
 | `source/critters.brs` | The cave's moray is run by `santa_moray.brs`, which falls back to `moray.brs`. |
 | `source/settings.brs` | Adds the season and developer-build tank settings. Settings are stored in the `rellieReef` registry section. |
 | `components/SettingsScene.xml`, `components/SettingsScene.brs` | Lighting, season, and a tank list when both tanks are packaged. |

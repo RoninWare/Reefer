@@ -14,7 +14,8 @@ of app/scenes/tank.json that depends on where things are:
     and the embers that glow in the hearth in Night Lite
   * the fish and their sprite sheets, the shrimp's routes and the light shafts
   * what glows at night: each structure's glow, split in two, and the fish's and shrimp's glow
-    sheets, all at half size
+    sheets, all at half size, and the light that glow throws on the sand, at a quarter
+  * the floor stone, from art/seasons_quartz.png
 
 Running it twice changes nothing more: it works from market/art and from where the scene
 says things are now.
@@ -29,10 +30,11 @@ from PIL import Image, ImageChops, ImageFilter
 HERE = Path(__file__).resolve().parent
 ART, APP = HERE / "art", HERE / "app"
 IMAGES, REEF = APP / "images", ART / "reefscape"
+XMAS = HERE.parent / "authoring/christmas"      # the Christmas models the two editions share
 CELL, COLS, ROWS = 40, 85, 27           # the coral map: 40 px cells over the 3400 x 1080 tank
 TILE = 1920                             # a Roku bitmap is at most 2048 px wide
 GONE = ("mound_a.png", "mound_b.png", "reef_left.png", "reef_right.png", "cave_shade.png", "anemone_current.png", "custom_plate_coral.png",
-        "moray.png", "moray_jaw.png", "duster_crown.png", "duster_tube.png", "starfish.png",
+        "moray.png", "moray_jaw.png", "custom_holiday_quartz.png", "duster_crown.png", "duster_tube.png", "starfish.png",
         "bluetang_atlas0.png", "clown_atlas0.png", "gramma_atlas0.png", "puffer_atlas0.png", "puffer_ball_atlas0.png", "yellowtang_atlas0.png")
 
 
@@ -66,7 +68,7 @@ def reef_glow(name, glow):
     """A structure's glow as two half-size pictures that share it between them in soft patches,
     so the app can brighten one while it dims the other, each with a little halo round the light."""
     light = glow.convert("RGBa")
-    halo = [ImageChops.lighter(band, band.filter(ImageFilter.GaussianBlur(4)).point(lambda v: v * 0.55)) for band in light.split()]
+    halo = [ImageChops.lighter(band, band.filter(ImageFilter.GaussianBlur(3)).point(lambda v: v * 0.3)) for band in light.split()]
     light = Image.merge("RGBa", halo)
     rng = random.Random(name)
     coarse = Image.new("L", (glow.width // 110 + 2, glow.height // 110 + 2))
@@ -77,6 +79,22 @@ def reef_glow(name, glow):
         part = Image.merge("RGBa", [ImageChops.multiply(band, mask) for band in light.split()])
         parts.append(part.resize((glow.width // 2, glow.height // 2), Image.Resampling.BOX).convert("RGBA"))
     return parts
+
+
+def floor_glow(light, cover):
+    """The light the reef's glow throws on the sand, from a render of the whole tank at a
+    fraction of its size: none where the reef itself stands (cover: the tank's size, white on
+    the reef), softened, and cut to the rows it reaches. Returns the picture and its top row."""
+    hidden = ImageChops.invert(cover.resize(light.size, Image.Resampling.BOX))
+    # The render is true to the light: a few hot spots at the feet of the corals and very little
+    # between. Even that out, so the sand between the reefs has some colour and the spots do not glare.
+    light = light.convert("RGBA")
+    light.putalpha(light.getchannel("A").point(lambda v: round(255 * (max(0, v - 10) / 245) ** 0.55)))        # less the render's noise
+    bands = light.convert("RGBa").split()
+    bands = [ImageChops.multiply(band, hidden).filter(ImageFilter.GaussianBlur(1.6)) for band in bands]
+    soft = Image.merge("RGBa", bands)
+    top = bands[3].point(lambda v: 255 if v > 5 else 0).getbbox()[1]
+    return soft.crop((0, top, soft.width, soft.height)).convert("RGBA"), top
 
 
 def main():
@@ -108,18 +126,31 @@ def main():
         for letter, part in zip("ab", reef_glow(name, Image.open(REEF / f"{name}_glow.png"))):
             part.save(IMAGES / f"reef_{name}_glow_{letter}.png")
         scene["glow"].append({"a": image(f"reef_{name}_glow_a.png"), "b": image(f"reef_{name}_glow_b.png"), "x": piece["x"], "y": piece["y"]})
+    cover = Image.new("L", plate.size, 0)
+    for alpha, x, y in solid:
+        cover.paste(255, (x, y, x + alpha.width, y + alpha.height), alpha.point(lambda v: 255 if v > 200 else 0))
+    light = Image.open(REEF / "floor_glow.png")
+    spill, top = floor_glow(light, cover)
+    spill.save(IMAGES / "floor_glow.png")
+    k = plate.width // light.width
+    scene["floorGlow"] = {"img": image("floor_glow.png"), "x": 0, "y": top * k, "k": k}
 
-    # The stone and the Christmas set. Pieces marked "front" are drawn after the light strings.
+    # The stone and the Christmas set. They stand before the reef: pieces marked "front" are drawn
+    # after the light strings, the night's dark and the reef's glow, in this order.
+    Image.open(ART / "seasons_quartz.png").save(IMAGES / "custom_seasons_quartz.png")
     def place(name, at, **marks):
         sprite = Image.open(IMAGES / name).convert("RGBA")
         pieces.append({"img": image(name), "x": at[0], "y": at[1], "shadow": False, **marks})
         return sprite.getchannel("A"), at[0], at[1]
 
     spots = layout["christmas"]
-    fireplace = place("custom_fireplace.png", spots["fireplace"], xmas=True)
-    hearth_gifts = place("custom_gifts_hearth.png", spots["gifts_hearth"], xmas=True)
+    # The fireplace and the glows are Rellie Reef's models: take them as they are now.
+    for model, name in (("fireplace", "custom_fireplace"), ("glows", "xmas_glows")):
+        (IMAGES / f"{name}.png").write_bytes((XMAS / f"{model}.png").read_bytes())
+    fireplace = place("custom_fireplace.png", spots["fireplace"], xmas=True, front=True)
+    hearth_gifts = place("custom_gifts_hearth.png", spots["gifts_hearth"], xmas=True, front=True)
     tree = place("custom_tree.png", spots["tree"], xmas=True, front=True)
-    stone = place("custom_holiday_quartz.png", layout["stone"], front=True)
+    stone = place("custom_seasons_quartz.png", layout["stone"], front=True)
     tree_gifts = place("custom_gifts_tree.png", spots["gifts_tree"], xmas=True, front=True)
     scene["pan"]["pieces"] = pieces
     scene["coralPlain"] = occupancy(solid + [stone])
@@ -129,11 +160,14 @@ def main():
     xmas = scene["christmas"]
     dx, dy = (spots["tree"][k] - before["custom_tree.png"][("x", "y")[k]] for k in (0, 1))
     xmas["star"] = [xmas["star"][0] + dx, xmas["star"][1] + dy]
-    own = [[round(b[0] + dx, 1), round(b[1] + dy, 1), b[2], b[3]] for b in xmas["bulbs"] if len(b) > 3]
-    dx, dy = (spots["fireplace"][k] - before["custom_fireplace.png"][("x", "y")[k]] for k in (0, 1))
-    xmas["fire"]["x"], xmas["fire"]["y"] = xmas["fire"]["x"] + dx, xmas["fire"]["y"] + dy
+    own = [[round(b[0] + dx, 1), round(b[1] + dy, 1), b[2], b[3]] for b in xmas["bulbs"] if len(b) == 4]
+    # The fire, the hearth and the chimney's mouth are where the fireplace's model says they are
+    # in its picture (authoring/christmas/fireplace.json, written with fireplace.png).
+    model = json.loads((XMAS / "fireplace.json").read_text())
+    fx, fy = spots["fireplace"]
+    xmas["fire"] = {**model["fire"], "x": fx + model["fire"]["x"], "y": fy + model["fire"]["y"]}
     for key in ("hearth", "chimney"):
-        xmas[key] = [xmas[key][0] + dx, xmas[key][1] + dy]
+        xmas[key] = [round(fx + model[key][0]), round(fy + model[key][1])]
     # Embers for the Night Lite, when the fire is out: what glows in the fireplace's own picture
     # (the cracks in the logs and the bed under the grate), with the logs themselves left dim.
     hearth = Image.open(IMAGES / "custom_fireplace.png").convert("RGBA")
@@ -154,14 +188,17 @@ def main():
 
     def covered(x, y):
         """Behind one of the pieces that stand in front of the strings."""
-        for alpha, left, top in (tree, stone, tree_gifts):
+        for alpha, left, top in (fireplace, hearth_gifts, tree, stone, tree_gifts):
             px, py = round(x - left), round(y - top)
             if 0 <= px < alpha.width and 0 <= py < alpha.height and alpha.getpixel((px, py)) > 127:
                 return True
         return False
 
     xmas["tiles"] = lights["tiles"]
-    xmas["bulbs"] = [bulb for bulb in lights["bulbs"] if not covered(bulb[0], bulb[1])] + own
+    # The fireplace's own lights (the string on its mantel, the small ones in its wreath) come
+    # with its model too.
+    mantel = [[round(fx + x, 1), round(fy + y, 1), color, group, size] for x, y, color, group, size in model.get("bulbs", [])]
+    xmas["bulbs"] = [bulb for bulb in lights["bulbs"] if not covered(bulb[0], bulb[1])] + own + mantel
 
     # The moray: rendered facing left with his hidden end at "deep"; mirrored into the new cave.
     cave = json.loads((REEF / "grotto.json").read_text())["cave"]

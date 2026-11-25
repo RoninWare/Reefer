@@ -12,6 +12,7 @@ kinds of picture come out of it, into market/art/reefscape:
   preview.jpg   the structures laid over the plate, to look at
 
 --draft renders with few samples. --only <name> renders one structure and reuses the rest.
+--plate renders the empty tank alone and leaves the structures as they are: for work on the sand.
 --glow renders, for each structure already rendered, <name>_glow.png: only what it gives off
 under blue light at night (coral tips, polyps' mouths, the grooves of brain corals), in the
 same frame as its picture.
@@ -34,6 +35,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 ARGS = rig.script_args()
 DRAFT = "--draft" in ARGS
 GLOW = "--glow" in ARGS
+PLATE = "--plate" in ARGS
 ONLY = ARGS[ARGS.index("--only") + 1] if "--only" in ARGS else None
 WIDTH, HEIGHT, DEPTH = 34.0, 10.8, 22.0     # the tank, in units; the plate is WIDTH x HEIGHT hundred px
 ELEVATION = 9.0
@@ -117,14 +119,29 @@ def build_sand():
     mat = rig.material("Sand", (0.8, 0.78, 0.72), 0.85)
     g = rig.Graph(mat)
     where = g.coords()
+    at = g.node("ShaderNodeSeparateXYZ")
+    g.set(at.inputs[0], where)
     grain = g.noise(where, scale=95, detail=3, roughness=0.7).outputs["Fac"]
+    speck = g.noise(where, scale=38, detail=2, roughness=0.6).outputs["Fac"]
     patch = g.noise(where, scale=1.1, detail=4, roughness=0.6).outputs["Fac"]
-    color = g.ramp(grain, [(0.3, (0.40, 0.40, 0.41)), (0.55, (0.60, 0.60, 0.61)), (0.8, (0.76, 0.76, 0.77))]).outputs["Color"]
+    tone = g.noise(where, scale=0.33, detail=3, roughness=0.5).outputs["Fac"]
+    # Coral sand: bone-white grains, with grey ones, a few dark ones and flecks of shell among them.
+    color = g.ramp(grain, [(0.3, (0.38, 0.37, 0.37)), (0.55, (0.61, 0.60, 0.58)), (0.8, (0.79, 0.78, 0.74))]).outputs["Color"]
+    color = g.mix(g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.62, 0.74, speck), 0.75), color, (0.17, 0.17, 0.19))
+    color = g.mix(g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.36, 0.26, speck), 0.8), color, (0.93, 0.89, 0.80))
     color = g.mix(g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.45, 0.7, patch), 0.22), color, (0.46, 0.48, 0.53))
+    # The current combs the sand into rows of ripples that run across the tank, wandering as
+    # they go. Fine dark grains settle in the troughs, so the rows show even in a dim tank.
+    wander = g.noise(where, scale=0.4, detail=2).outputs["Fac"]
+    rows = g.math("ADD", g.math("ADD", g.math("MULTIPLY", at.outputs["Y"], 1 / 1.25), g.math("MULTIPLY", at.outputs["X"], 0.09)), g.math("MULTIPLY", wander, 1.3))
+    ripple = g.math("SINE", g.math("MULTIPLY", rows, math.tau))
+    small = g.math("SINE", g.math("MULTIPLY", g.math("ADD", g.math("MULTIPLY", rows, 3.0), g.math("MULTIPLY", patch, 1.5)), math.tau))
+    crest = g.math("ADD", g.math("MULTIPLY", g.math("SMOOTHSTEP", -0.5, 0.9, ripple), 0.65), g.math("MULTIPLY", g.math("SMOOTHSTEP", -0.6, 0.8, small), 0.35))
+    color = g.mix(g.math("MULTIPLY", g.math("SUBTRACT", 1.0, crest), 0.66), color, (0.22, 0.23, 0.28))
+    # Broad lighter and darker reaches, where the sand lies thicker or finer.
+    color = g.mix(g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.62, 0.38, tone), 0.38), color, (0.30, 0.31, 0.36))
     # Water takes the colour out of the sand with distance.
-    back = g.node("ShaderNodeSeparateXYZ")
-    g.set(back.inputs[0], where)
-    haze = g.math("MULTIPLY", g.math("SMOOTHSTEP", 1.5, DEPTH, back.outputs["Y"]), 0.93)
+    haze = g.math("MULTIPLY", g.math("SMOOTHSTEP", 1.5, DEPTH, at.outputs["Y"]), 0.93)
     g.to("Base Color", g.mix(haze, color, (0.035, 0.10, 0.24)))
     # Light through the rippled surface: a net of bright lines that fades with depth too.
     net = g.node("ShaderNodeTexVoronoi", feature="DISTANCE_TO_EDGE")
@@ -134,9 +151,56 @@ def build_sand():
     lines = g.math("SMOOTHSTEP", 0.09, 0.0, net.outputs["Distance"])
     g.to("Emission Color", (0.75, 0.92, 1.0))
     g.to("Emission Strength", g.math("MULTIPLY", lines, g.math("SUBTRACT", 0.16, g.math("MULTIPLY", haze, 0.17))))
-    g.bump(grain, strength=0.35, distance=0.01)
+    g.bump(g.math("ADD", g.math("MULTIPLY", grain, 0.3), crest), strength=0.6, distance=0.035)
     obj = rig.add_mesh(scene, "Sand", verts, faces, [mat], smooth=True)
     return obj
+
+
+def build_rubble():
+    """What lies on a reef's sand: broken coral, bits of shell and small stones, thick in some
+    places and absent in others. Each piece is half buried and throws its own small shadow."""
+    import random
+    rnd = random.Random(41)
+    soup = kit.Soup("Rubble")
+    bone, grey, slate, pink, plum = (0.78, 0.75, 0.68), (0.52, 0.52, 0.52), (0.24, 0.25, 0.29), (0.62, 0.36, 0.46), (0.36, 0.22, 0.42)
+    placed = 0
+    while placed < 2600:
+        x, y = rnd.uniform(-0.5, WIDTH + 0.5), rnd.uniform(0.2, DEPTH - 1.5)
+        crowd = noise.noise(Vector((x * 0.3, y * 0.3, 21.0)))
+        if rnd.random() > 0.12 + 0.88 * max(0.0, min(1.0, (crowd + 0.1) / 0.5)):
+            continue
+        placed += 1
+        r = 0.012 + 0.04 * rnd.random() ** 2.6        # grit, mostly: a few pixels across
+        if rnd.random() < 0.012:
+            r = rnd.uniform(0.07, 0.11)         # now and then a stone
+        long = rnd.uniform(1.8, 2.8) if rnd.random() < 0.25 else rnd.uniform(0.9, 1.5)      # a length of branch, or a lump
+        ax, ay, az = r * long, r * rnd.uniform(0.7, 1.2), r * rnd.uniform(0.55, 0.9)
+        turn = rnd.uniform(0, math.tau)
+        base = sand_height(x, y) - az * rnd.uniform(0.1, 0.5)          # sunk in the sand
+        rings, sides = 5, 8
+        verts, faces = [], []
+        for i in range(rings + 1):
+            lat = math.pi * (0.04 + 0.92 * i / rings)
+            for k in range(sides):
+                phi = math.tau * k / sides
+                lump = rnd.uniform(0.6, 1.25)
+                px, py = ax * sin(lat) * cos(phi) * lump, ay * sin(lat) * sin(phi) * lump
+                verts.append((x + px * cos(turn) - py * sin(turn), y + px * sin(turn) + py * cos(turn), base + az * cos(lat) * lump))
+                if i:
+                    j = (k + 1) % sides
+                    faces.append(((i - 1) * sides + k, (i - 1) * sides + j, i * sides + j, i * sides + k))
+        tint = rnd.choices([bone, grey, slate, pink, plum], [46, 22, 12, 12, 8])[0]
+        soup.add(verts, faces, kit.shade(tint, rnd.uniform(0.8, 1.12)), 0.5)
+    mat = rig.material("Rubble", (0.7, 0.7, 0.7), 0.8)
+    g = rig.Graph(mat)
+    at = g.node("ShaderNodeSeparateXYZ")
+    g.set(at.inputs[0], g.coords())
+    pitted = g.noise(g.coords(), scale=60, detail=3, roughness=0.7).outputs["Fac"]
+    color = g.mix(g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.55, 0.3, pitted), 0.35), g.attribute("tint").outputs["Color"], (0.2, 0.2, 0.22))
+    haze = g.math("MULTIPLY", g.math("SMOOTHSTEP", 1.5, DEPTH, at.outputs["Y"]), 0.93)
+    g.to("Base Color", g.mix(haze, color, (0.035, 0.10, 0.24)))
+    g.bump(pitted, strength=0.4, distance=0.01)
+    return soup.build(scene, mat)
 
 
 def build_wall():
@@ -405,6 +469,8 @@ STRUCTURES = {"arch": arch, "bommie": bommie, "grotto": grotto}
 ROCK = kit.rock_material()
 CORAL = kit.materials()
 sand = build_sand()
+rubble = build_rubble()
+rubble.hide_render = True           # it is part of the plate, and of nothing else
 wall = build_wall()
 
 # ---- render ----------------------------------------------------------------------------
@@ -422,7 +488,7 @@ def soften(path, haze=0.07, edge=28):
     rig.write_pixels(path, pixels)
 
 
-built = {name: make() for name, make in STRUCTURES.items() if ONLY in (None, name)}
+built = {} if PLATE else {name: make() for name, make in STRUCTURES.items() if ONLY in (None, name)}
 
 if GLOW:
     # What the reef gives off in the dark: the same structures with every material swapped for
@@ -453,6 +519,24 @@ if GLOW:
         pixels[..., 3] = np.clip(peak, 0, 1)
         rig.write_pixels(OUT / f"{name}_glow.png", pixels)
         print("GLOW", name, pixels.shape[1], "x", pixels.shape[0], "lit", round(float((peak > 0.1).mean()) * 100, 1), "%")
+    # And what that light does to the sand: the whole reef glowing at once, unseen itself, over
+    # plain white sand. It is soft light, so a quarter of the size is plenty.
+    for objects in built.values():
+        for obj in objects:
+            obj.hide_render = False
+            obj.visible_camera = False
+    sand.hide_render = False
+    sand.data.materials[0] = rig.material("Bare sand", (0.8, 0.8, 0.8), 0.9, Specular_IOR_Level=0.0)
+    scene.render.resolution_percentage = 25
+    scene.cycles.samples = 400
+    rig.render(scene, OUT / "floor_glow.png")
+    pixels = rig.read_pixels(OUT / "floor_glow.png")
+    peak = pixels[..., :3].max(axis=2)
+    full = float(np.percentile(peak, 99.7))
+    pixels[..., :3] /= np.maximum(peak, 1e-6)[..., None]
+    pixels[..., 3] = np.clip(peak / max(full, 1e-6), 0, 1)
+    rig.write_pixels(OUT / "floor_glow.png", pixels)
+    print("GLOW floor", pixels.shape[1], "x", pixels.shape[0], "brightest", round(full, 4))
     raise SystemExit(0)
 
 if ONLY is None:
@@ -464,7 +548,11 @@ if ONLY is None:
     scene.render.image_settings.file_format = "JPEG"
     scene.render.image_settings.color_mode = "RGB"
     scene.render.image_settings.quality = 95
+    rubble.hide_render = False
     rig.render(scene, OUT / "plate.jpg")
+    rubble.hide_render = True
+    if PLATE:
+        raise SystemExit(0)
 
 # Each structure alone: the sand only catches its shadow and the water is left out.
 scene.render.film_transparent = True

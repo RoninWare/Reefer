@@ -137,10 +137,11 @@ sub SantaMorayDraw(s as object, screen as object, t as float)
         SantaMorayPose(s, screen, e.cells[b], 255)
     end if
     ' The cave's back wall and shadow go over him, so his body runs off into the dark.
-    if e.shade <> invalid then screen.DrawObject(c.shade[0] - s.camX, c.shade[1], e.shade)
+    ' Both are drawn after the night's dark, in its tint.
+    if e.shade <> invalid then screen.DrawObject(c.shade[0] - s.camX, c.shade[1], e.shade, s.dim)
 end sub
 
 sub SantaMorayPose(s as object, screen as object, p as object, alpha as integer)
     sx = p.x - s.camX
-    if sx < 1920 and sx + p.w > 0 then XmasDrawCell(screen, p.cell, sx, p.y, alpha)
+    if sx < 1920 and sx + p.w > 0 then XmasDrawCellTinted(screen, p.cell, sx, p.y, alpha, s.dimRgb)
 end sub

@@ -49,6 +49,7 @@ sub CrittersUpdate(s as object, t as float, dt as float)
     end if
 end sub
 
+' Drawn after the night's dark, in its tint (s.dim).
 sub CrittersDraw(s as object, screen as object, t as float)
     ' Starfish, with a soft contact shadow so it sits on the sand.
     st = s.star
@@ -57,7 +58,7 @@ sub CrittersDraw(s as object, screen as object, t as float)
         sy = s.cfg.starfish.y
         sx = st.x - s.camX
         screen.DrawScaledObject(sx - sw * 0.55, sy - shh * 0.2, sw * 1.1 / 24, shh * 0.9 / 24, s.puff, &h1A140F00 + 90)
-        screen.DrawObject(sx - sw / 2, sy - shh / 2, s.starBmp)
+        screen.DrawObject(sx - sw / 2, sy - shh / 2, s.starBmp, s.dim)
     end if
 
     ' The moray's cave shade covers rock around the cave; the dusters growing on that rock go
@@ -119,9 +120,9 @@ sub DrawDusters(s as object, screen as object, t as float)
             k = d.open
             sx = d.s * (0.3 + 0.7 * k) * (1 + 0.04 * Sin(t * 0.9 + d.ph))
             sy = d.s * k
-            screen.DrawScaledObject(d.x - s.camX - sx * cw / 2 + 2 * Sin(t * 0.6 + d.ph), d.y - sy * (ch - drop), sx, sy, s.crown)
+            screen.DrawScaledObject(d.x - s.camX - sx * cw / 2 + 2 * Sin(t * 0.6 + d.ph), d.y - sy * (ch - drop), sx, sy, s.crown, s.dim)
         end if
-        screen.DrawScaledObject(d.x - s.camX - d.s * tw / 2, d.y - 4 * d.s, d.s, d.s, s.tube)
+        screen.DrawScaledObject(d.x - s.camX - d.s * tw / 2, d.y - 4 * d.s, d.s, d.s, s.tube, s.dim)
     end for
 end sub
 

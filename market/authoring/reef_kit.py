@@ -518,45 +518,46 @@ def materials():
 
 
 def glow_material(name, pattern, scale=30.0, source="core"):
-    """What a coral gives off under blue light: nothing from most of it, and a strong pure
-    colour from its growing tips, its polyps' mouths or the grooves of a brain coral. The
-    pattern is the same one coral_material paints, so the glow falls exactly on it."""
+    """What a coral gives off under blue light: nothing from most of it, and a little colour
+    from its growing tips, the rim of a plate, its polyps' mouths or the grooves of a brain
+    coral. The pattern is the same one coral_material paints, so the glow falls exactly on it.
+    Only part of the reef is lit at all: the glow comes and goes in patches a few corals wide,
+    so it reads as highlights here and there and not as a second, brighter reef."""
     mat = rig.material(name + " glow", (0, 0, 0), 1.0, Specular_IOR_Level=0.0)
     g = Graph(mat)
     tip = g.attribute("tip").outputs["Fac"]
     where = g.coords()
     lit = g.node("ShaderNodeHueSaturation")
-    lit.inputs["Saturation"].default_value, lit.inputs["Value"].default_value = 1.9, 2.2
+    lit.inputs["Saturation"].default_value, lit.inputs["Value"].default_value = 1.5, 2.2
     g.set(lit.inputs["Color"], g.attribute(source).outputs["Color"])
     colour = g.mix(0.25, lit.outputs["Color"], (0.3, 1.0, 0.9))         # pale tips come up sea green
-    if pattern == "polyps":         # growing tips
-        amount = g.math("SMOOTHSTEP", 0.86, 1.0, tip)
-    elif pattern == "fan":          # a sea fan's tips, and its polyps as dots along the branches
-        cells = g.node("ShaderNodeTexVoronoi", feature="F1")
-        cells.inputs["Scale"].default_value = scale
-        g.set(cells.inputs["Vector"], where)
-        dots = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.3, 0.1, cells.outputs["Distance"]), g.math("SMOOTHSTEP", 0.25, 0.6, tip))
-        amount = g.math("MAXIMUM", g.math("SMOOTHSTEP", 0.9, 1.0, tip), g.math("MULTIPLY", dots, 0.22))
-    elif pattern in ("rings", "cup"):       # the rim of a plate
-        amount = g.math("SMOOTHSTEP", 0.88, 1.0, tip)
-    elif pattern == "brain":        # the valleys between the ridges
+    if pattern == "polyps":         # the very ends of the branches
+        amount = g.math("SMOOTHSTEP", 0.93, 1.0, tip)
+    elif pattern == "table":        # a table is all ends: only a faint dusting, or the whole plate lights up
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.95, 1.0, tip), 0.4)
+    elif pattern == "fan":          # a sea fan's tips
+        amount = g.math("SMOOTHSTEP", 0.94, 1.0, tip)
+    elif pattern in ("rings", "cup"):       # the rim of a plate: a thin line
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.95, 1.0, tip), 0.8)
+    elif pattern == "brain":        # the bottoms of the valleys between the ridges
         wave = g.node("ShaderNodeTexWave", wave_type="BANDS", wave_profile="SIN")
         wave.inputs["Scale"].default_value = scale
         wave.inputs["Distortion"].default_value = 6.0
         wave.inputs["Detail"].default_value = 2.0
         wave.inputs["Detail Scale"].default_value = 1.3
         g.set(wave.inputs["Vector"], where)
-        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.4, 0.12, wave.outputs["Fac"]), 0.85)
-    elif pattern == "stars":        # each cup's centre
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.3, 0.08, wave.outputs["Fac"]), 0.5)
+    elif pattern == "stars":        # the centres of its cups: small dots
         cells = g.node("ShaderNodeTexVoronoi", feature="F1")
         cells.inputs["Scale"].default_value = scale
         g.set(cells.inputs["Vector"], where)
-        amount = g.math("SMOOTHSTEP", 0.24, 0.1, cells.outputs["Distance"])     # small enough to stay apart at half size
-    elif pattern == "relief":       # the grooves of a folded brain coral
-        amount = g.math("SMOOTHSTEP", 0.6, 0.1, tip)
-    else:                           # "discs": a polyp's mouth, and faintly the edge of its skirt
-        mouth = g.math("SMOOTHSTEP", 0.36, 0.2, tip)
-        amount = g.math("MAXIMUM", mouth, g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.84, 1.0, tip), 0.5))
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.2, 0.08, cells.outputs["Distance"]), 0.6)
+    elif pattern == "relief":       # the deepest grooves of a folded brain coral
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.34, 0.04, tip), 0.6)
+    else:                           # "discs": a polyp's mouth
+        amount = g.math("MULTIPLY", g.math("SMOOTHSTEP", 0.3, 0.16, tip), 0.7)
+    patch = g.math("SMOOTHSTEP", 0.46, 0.6, g.noise(where, scale=0.8, detail=2).outputs["Fac"])
+    amount = g.math("MULTIPLY", amount, g.math("ADD", 0.08, g.math("MULTIPLY", patch, 0.92)))
     g.to("Emission Color", g.mix(amount, (0, 0, 0), colour))
     g.to("Emission Strength", 1.0)
     return mat
@@ -569,7 +570,7 @@ def glow_materials():
     return {
         "Reef rock": dark,
         "Branching coral": glow_material("Branching coral", "polyps", source="tint"),
-        "Table coral": glow_material("Table coral", "polyps", source="tint"),
+        "Table coral": glow_material("Table coral", "table", source="tint"),
         "Plating coral": glow_material("Plating coral", "rings"),
         "Brain coral": glow_material("Brain coral", "brain", scale=5.5, source="tint"),     # wider apart than its ridges, to read at half size
         "Star coral": glow_material("Star coral", "stars", scale=21),

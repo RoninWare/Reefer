@@ -11,14 +11,14 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | `manifest` | Title and version. |
 | `source/main.brs` | Reads the season setting and applies it to the scene before the tank loads. |
 | `source/reef.brs` | Loads and updates the added modules after the reef and the fish. |
-| `source/pan.brs` | Draws the water surface, the anemone, the shrimp and the Christmas set, including a pass over the night tint. Pieces marked `front` are drawn after the anemone and the coral light strings. |
+| `source/pan.brs` | Draws the water surface, the anemone, the shrimp and the Christmas set. Pieces marked `front`, the critters and the near fish are drawn after the coral light strings, the night's dark and the reef's glow, and take the dark as a tint of their own (`NightDim` in `source/reef.brs`). |
 | `source/critters.brs` | The cave's moray is run by `santa_moray.brs`. Feather dusters and the starfish are drawn only where the scene has them. |
 | `source/moray.brs`, `images/moray*.png`, `images/cave_shade.png`, `images/duster_*.png`, `images/starfish.png` | Removed. |
 | `images/wide_bg*.jpg`, `images/reef_left.png`, `images/reef_right.png`, `images/mound_*.png` | Removed. The tank and its reef are new pictures, rendered for this edition (`images/wide_bg*.jpg`, `images/reef_*.png`). |
 | `source/settings.brs` | Adds the season setting. Settings are stored in the `rellieReef` registry section. |
 | `components/SettingsScene.xml`, `components/SettingsScene.brs` | Two lists, lighting and season, with focus moving between them. |
 | `images/splash_*.jpg`, `images/icon_*.jpg` | Re-rendered with the title "Seasons Reef tank". |
-| `source/fish.brs` | Shows one strength of body bend toward each flank, which is what the fish sheets hold. Draws a rowing pectoral fin from the poses a view carries, and draws each fish's glow over the night's dark. |
+| `source/fish.brs` | Shows one strength of body bend toward each flank, which is what the fish sheets hold. Draws a rowing pectoral fin from the poses a view carries. At night a fish in front of the reef, or in open water behind it, is drawn after the night's dark in the night's tint, with its glow over it. |
 | `images/*_atlas0.png`, `images/ray.png`, `images/mote.png`, `images/puff.png` | Removed. The fish and the light sprites are new pictures, made for this edition. |
 | Every PNG | Saved again more tightly when the package is built, to fit Roku's 4 MB limit. |
 | `scenes/tank.json` | The added models, the Christmas set, the shrimp's routes and a second coral map are written into the scene. |
@@ -30,7 +30,7 @@ The Reef Glass release was brought into this tree on 2026-11-22. The files below
 | File | Purpose |
 |---|---|
 | `source/surface.brs` | Moving water surface. |
-| `source/glow.brs` | The reef's glow at night and in Night Lite. |
+| `source/glow.brs` | The reef's glow at night and in Night Lite, and the light it throws on the sand. |
 | `source/season.brs` | Takes the Christmas set out of the scene when it is switched off. |
 | `source/christmas.brs` | Hearth fire, chimney bubbles, the bulbs on the coral light strings and on the tree, the glow of the tree's star, and embers in the hearth in Night Lite. |
 | `source/santa_moray.brs` | The green moray in a Santa hat. |

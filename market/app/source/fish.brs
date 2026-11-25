@@ -51,6 +51,7 @@ sub FishInit(s as object)
     ' transparency, so they sit back in the blue.
     hz = cfg.haze
     s.tints = []
+    s.tintRgb = []
     for i = 0 to 20
         z = i / 20.0
         k = (1 - z) * hz.far
@@ -58,7 +59,10 @@ sub FishInit(s as object)
         g = Int(255 * (1 - k) + hz.rgb[1] * k)
         b = Int(255 * (1 - k) + hz.rgb[2] * k)
         s.tints.Push(RGBA(r, g, b, Int(255 * (1 - 0.3 * k))))
+        s.tintRgb.Push([r, g, b, Int(255 * (1 - 0.3 * k))])
     end for
+    ' The tints in use: s.tints, or at night, for fish drawn after the dark, s.tintsLate (reef.brs).
+    s.tintsNow = s.tints
     ' Dev launch nofish=1: an empty tank, to look closely at the scene.
     if s.opts.nofish = true then return
     for each name in cfg.species
@@ -361,7 +365,7 @@ function NewFish(s as object, sp as object, spr as object, idx as integer) as ob
         size: 1.0
         cruise: sp.speed * RndRange(0.85, 1.15)
         big: false, followers: invalid, turnDir: 0, blockT: 0.0, leader: invalid, visiting: false, slot: invalid, wob: 0.0, visitAt: invalid
-        puff: 0.0, pmode: "none", ptime: 0.0, pcool: RndRange(40, 90), row: Rnd(0) * 4
+        puff: 0.0, pmode: "none", ptime: 0.0, pcool: RndRange(40, 90), row: Rnd(0) * 4, late: false, gk: 0.0
         radius: 0.5 * sp.sideLen
     }
     if sp.radius <> invalid then f.radius = sp.radius
@@ -816,16 +820,24 @@ sub FishDraw(s as object, screen as object, f as object)
 end sub
 
 sub FishDrawAt(s as object, screen as object, f as object)
-    col = s.tints[Int(f.z * 20 + 0.5)]
+    zi = Int(f.z * 20 + 0.5)
+    col = s.tintsNow[zi]
+    ' A fish behind the reef that has just swum out from behind the coral comes up to its
+    ' lifted night tint over a few frames (f.gk, PanFrame), and its glow with it.
+    gk = 1.0
+    if f.late = true and f.gk < 1
+        gk = f.gk
+        col = LateTint(s, s.tintRgb[zi], 1 + (s.fishLift - 1) * gk)
+    end if
     tailK = 1 - f.amp * (0.5 + 0.5 * Cos(f.phase))
     sc = f.size * DepthScale(s, f.z)
     spr = f.spr
-    ' The glow pass (FishGlow) draws the fish again from its glow sheet, untinted, each fish
+    ' The glow (FishDrawLate) draws the fish again from its glow sheet, untinted, each fish
     ' catching the light in its own time.
     if s.glowA <> invalid
         spr = spr.glow
         if spr = invalid then return
-        col = &hFFFFFF00 + Int(s.glowA * (0.72 + 0.28 * Sin(s.glowT * 1.7 + f.id * 2.1)))
+        col = &hFFFFFF00 + Int(s.glowA * gk * (0.72 + 0.28 * Sin(s.glowT * 1.7 + f.id * 2.1)))
     end if
     ' Heading to a rendered view: facing right (cos >= 0) directly; facing left as the mirror
     ' of the matching right-facing heading.
@@ -929,22 +941,23 @@ sub DrawNormalView(s as object, screen as object, x as float, y as float, f as o
     end if
 end sub
 
-' After the night's dark has been laid over the tank: every fish that shows draws its glow.
-' Fish in front of the reef always show. One behind it shows only in open water, since its
-' glow would otherwise shine through the coral that hides it.
-sub FishGlow(s as object, screen as object, t as float)
-    a = Int(215 * s.night)
-    if s.nightLite then a = 235
-    if a < 8 then return
-    s.glowA = a
+' A fish drawn after the night's dark has been laid over the tank: its body, solid, in the
+' night's tint (s.tintsNow is s.tintsLate by then), and over that the lines of its glow, which
+' only accent it. glowA is how strong the glow is now (0 .. 255; none by day).
+sub FishDrawLate(s as object, screen as object, f as object, glowA as integer, t as float)
+    FishDraw(s, screen, f)
+    if glowA < 8 or f.spr.glow = invalid then return
+    s.glowA = glowA
     s.glowT = t
-    for each f in s.fish
-        if f.spr.glow <> invalid
-            if f.z >= s.cfg.fgZ or not OverCoral(s, f) then FishDraw(s, screen, f)
-        end if
-    end for
+    FishDraw(s, screen, f)
     s.glowA = invalid
 end sub
+
+' How strongly the fish glow now.
+function FishGlowLevel(s as object) as integer
+    if s.nightLite then return 130
+    return Int(120 * s.night)
+end function
 
 ' True when any of fish f lies over coral or rock on the coral map.
 function OverCoral(s as object, f as object) as boolean

@@ -58,8 +58,9 @@ sub PanInit(s as object)
             par = 1.0
             if p.par <> invalid then par = p.par
             q = { bmp: b, x: p.x, y: p.y, sc: sc, kx: sc * tx.kx, ky: sc * tx.ky, par: par, w: tx.w * sc, h: tx.h * sc, mir: (p.mir = true), tint: tint, shadow: (p.shadow <> false) }
-            ' Pieces marked "front" stand before the reefs: they are drawn after
-            ' the strings of lights on the corals, in the order they are listed.
+            ' Pieces marked "front" stand before the reefs: they are drawn after the strings
+            ' of lights on the corals, the night's dark and the reef's glow, in the order
+            ' they are listed.
             if par < 1
                 s.pan.far.Push(q)
             else if p.front = true
@@ -130,53 +131,87 @@ sub PanDrawBg(s as object, screen as object)
     end for
 end sub
 
-sub PanDrawPieces(s as object, screen as object, list as object)
+' Draws a list of pieces. With `late` true they are being drawn after the night's dark, and
+' take it as their own tint (s.dim) instead.
+sub PanDrawPieces(s as object, screen as object, list as object, late as boolean)
     puff = s.puff
     for each q in list
         sx = Int(q.x - s.camX * q.par + 0.5)
         if sx < 1920 and sx + q.w > 0
             ' A soft contact shadow on the sand under the piece.
             if q.shadow then screen.DrawScaledObject(sx + q.w * 0.08, q.y + q.h * 0.94, q.w * 0.84 / 24, q.h * 0.08 / 24, puff, &h0A141E00 + Int(90 * q.par))
+            col = q.tint
+            if late and col = &hFFFFFFFF then col = s.dim
             if q.mir
-                screen.DrawScaledObject(sx + q.w, q.y, -q.kx, q.ky, q.bmp, q.tint)
+                screen.DrawScaledObject(sx + q.w, q.y, -q.kx, q.ky, q.bmp, col)
             else
-                screen.DrawScaledObject(sx, q.y, q.kx, q.ky, q.bmp, q.tint)
+                screen.DrawScaledObject(sx, q.y, q.kx, q.ky, q.bmp, col)
             end if
         end if
     end for
 end sub
 
+' One frame, from the back of the tank to the front:
+'
+'   the water, and the fish that swim behind the reef
+'   the reef, with the light strings that hang on its corals
+'   the night's dark, over all of that
+'   the glow the reef gives off in that dark, on the sand and on its corals
+'   what stands in front of the reef (the pieces marked "front": the tree, the fireplace, the
+'   gifts, the stone), with the fire and the lit bulbs, then the moray, the shrimp and the
+'   fish that swim in front
+'
+' Everything after the dark is solid and is drawn in the night's tint (s.dim, reef.brs), so the
+' reef's glow never shows through a tree or a fish, and a fish is either behind the reef, the
+' tree and all their lights, or in front of all of them.
 sub PanFrame(s as object, screen as object, t as float)
     screen.SetAlphaEnable(false)
     PanDrawBg(s, screen)
     screen.SetAlphaEnable(true)
     DrawSurface(s, screen, t)
-    PanDrawPieces(s, screen, s.pan.far)
+    PanDrawPieces(s, screen, s.pan.far, false)
     DrawMotes(s, screen, s.motesFar)
     fishes = s.fish
     n = fishes.Count()
+    glowA = FishGlowLevel(s)
+    s.tintsNow = s.tints
+    ' A fish behind the reef is drawn here, under the dark. But at night one in open water,
+    ' with no coral or tree over it, waits until the dark is down, so that it can show its glow.
     i = 0
     while i < n and fishes[i].z < s.cfg.fgZ
-        FishDraw(s, screen, fishes[i])
+        f = fishes[i]
+        f.late = false
+        if glowA >= 8 and f.spr.glow <> invalid then f.late = not OverCoral(s, f)
+        if f.late
+            f.gk = f.gk + 0.06
+            if f.gk > 1 then f.gk = 1
+        else
+            f.gk = 0
+            FishDraw(s, screen, f)
+        end if
         i = i + 1
     end while
+    far = i
     DrawRays(s, screen, t)
-    PanDrawPieces(s, screen, s.pan.near)
+    PanDrawPieces(s, screen, s.pan.near, false)
     ChristmasWires(s, screen)
-    PanDrawPieces(s, screen, s.pan.front)
-    if not s.nightLite then ChristmasDraw(s, screen, t)
-    CrittersDraw(s, screen, t)
-    ShrimpDraw(s, screen, t)
-    while i < n
-        FishDraw(s, screen, fishes[i])
-        i = i + 1
-    end while
     DrawMotes(s, screen, s.motesNear)
     if s.night > 0 then screen.DrawRect(0, 0, 1920, 1080, s.nightRgba)
-    ' What glows goes over the night's dark: the corals, then the fish and the shrimp.
+    s.tintsNow = s.tintsLate
+    i = 0
+    while i < far
+        if fishes[i].late then FishDrawLate(s, screen, fishes[i], glowA, t)
+        i = i + 1
+    end while
     ReefGlow(s, screen, t)
-    FishGlow(s, screen, t)
+    PanDrawPieces(s, screen, s.pan.front, true)
+    ChristmasDraw(s, screen, t)
+    CrittersDraw(s, screen, t)
+    ShrimpDraw(s, screen, t)
     ShrimpGlow(s, screen, t)
-    ' Bulbs and firelight go over the night tint, so they shine in a dark tank.
-    ChristmasNight(s, screen, t)
+    while i < n
+        FishDrawLate(s, screen, fishes[i], glowA, t)
+        i = i + 1
+    end while
+    s.tintsNow = s.tints
 end sub

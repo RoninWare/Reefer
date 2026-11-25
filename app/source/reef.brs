@@ -137,6 +137,7 @@ sub UpdateLight(s as object, t as float)
     s.nightRgba = RGBA(nc[0], nc[1], nc[2], Int(lt.night.alpha * s.night))
     ' Deep blue-black leaves just enough contrast to read the reef in silhouette.
     if s.nightLite then s.nightRgba = &h02070DED
+    NightDim(s, nc)
     ' Fish slow down at night; this scales every cruise speed.
     na = 0.5
     if lt.nightActivity <> invalid then na = lt.nightActivity
@@ -147,6 +148,53 @@ sub UpdateLight(s as object, t as float)
         mo.col = &hE0F0FF00 + Int((30 + 90 * mo.z) * lum)
     end for
 end sub
+
+' What stands or swims in front of the reef (the tree, the fireplace, the gifts, the stone, the
+' moray, the shrimp, the fish) is drawn after the night's dark and the reef's glow, so that
+' the glow cannot show through it. It takes the dark as a tint of its own instead: the color
+' a mid-grey comes to under the night's tint. By day that is white, and nothing changes.
+'   s.dim        that tint, for the things that stand before the reef
+'   s.tintsLate  the fish's haze tints by depth (s.tints), darkened the same way
+' Both are lifted a little above the dark: things close to the lights and the glowing coral
+' catch some of it, and in Night Lite a fish would otherwise be only the lines of its glow.
+sub NightDim(s as object, nc as object)
+    a = 0.0
+    if s.night > 0 then a = (s.nightRgba and &hFF) / 255.0
+    tc = nc
+    lift = 1 + 0.25 * s.night
+    fishLift = 1 + 0.15 * s.night
+    if s.nightLite
+        tc = [2, 7, 13]
+        lift = 1.9
+        fishLift = 1.9
+    end if
+    s.dimV = []
+    d = []
+    for k = 0 to 2
+        v = (1 - a) + tc[k] / 255.0 * a * 2
+        s.dimV.Push(v)
+        v = v * lift
+        if v > 1 then v = 1
+        d.Push(Int(255 * v))
+    end for
+    s.dim = RGBA(d[0], d[1], d[2], 255)
+    s.dimRgb = s.dim and &hFFFFFF00
+    s.fishLift = fishLift
+    s.tintsLate = []
+    if s.tintRgb = invalid then return
+    for each c in s.tintRgb
+        s.tintsLate.Push(LateTint(s, c, fishLift))
+    end for
+end sub
+
+' A fish's haze tint c ([r, g, b, a]) under the night's dark, lifted by `lift`.
+function LateTint(s as object, c as object, lift as float) as integer
+    r = Int(c[0] * s.dimV[0] * lift) : g = Int(c[1] * s.dimV[1] * lift) : b = Int(c[2] * s.dimV[2] * lift)
+    if r > 255 then r = 255
+    if g > 255 then g = 255
+    if b > 255 then b = 255
+    return RGBA(r, g, b, c[3])
+end function
 
 ' Soft shafts of light from the surface, slowly breathing and swaying.
 sub DrawRays(s as object, screen as object, t as float)

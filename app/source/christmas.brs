@@ -10,7 +10,9 @@
 '   surface   y where a bubble reaches the top
 '   tiles     [[x, y, atlasX, atlasY, w, h], ...]   wire and bulbs, cut from xmas_lights.png
 '   bulbs     [[x, y, colour], ...]          the reefs' sorted by x; the tree's follow, in the
-'                                            order they hang on its string, as [x, y, colour, group]
+'                                            order they hang on its string, as [x, y, colour, group];
+'                                            then the fireplace's, as [x, y, colour, group, size]:
+'                                            size scales the glow (the wreath's lights are small)
 '   star      [x, y]                         centre of the tree's topper
 '   embers    [x, y]                         where xmas_embers.png lies over the logs (Night Lite)
 
@@ -27,12 +29,17 @@ function XmasCell(tx as object, x as integer, y as integer, w as integer, h as i
 end function
 
 sub XmasDrawCell(screen as object, cell as object, x as float, y as float, alpha as integer)
+    XmasDrawCellTinted(screen, cell, x, y, alpha, &hFFFFFF00)
+end sub
+
+' The same, in a tint: rgb is a color with no alpha (the night's s.dimRgb, say).
+sub XmasDrawCellTinted(screen as object, cell as object, x as float, y as float, alpha as integer, rgb as integer)
     if alpha <= 0 then return
     if alpha > 255 then alpha = 255
     if cell.kx = 1 and cell.ky = 1
-        screen.DrawObject(Int(x + 0.5), Int(y + 0.5), cell.r, &hFFFFFF00 + alpha)
+        screen.DrawObject(Int(x + 0.5), Int(y + 0.5), cell.r, rgb + alpha)
     else
-        screen.DrawScaledObject(x + cell.dx, y + cell.dy, cell.kx, cell.ky, cell.r, &hFFFFFF00 + alpha)
+        screen.DrawScaledObject(x + cell.dx, y + cell.dy, cell.kx, cell.ky, cell.r, rgb + alpha)
     end if
 end sub
 
@@ -46,7 +53,8 @@ sub ChristmasInit(s as object)
     gb = LoadBitmap(ImgPath("xmas_glows.png"))
     if gb <> invalid
         x.glows = []
-        for i = 0 to 5
+        ' One 64 px cell for each colour: red, green, blue, amber, pink, firelight, warm white.
+        for i = 0 to Int(gb.GetWidth() / 64) - 1
             r = CreateObject("roRegion", gb, i * 64, 0, 64, 64)
             r.SetScaleMode(1)
             x.glows.Push(r)
@@ -90,9 +98,11 @@ sub ChristmasInit(s as object)
         k = 0
         for each b in c.bulbs
             if b.Count() > 3
-                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: b[3] })
+                sz = 1.0
+                if b.Count() > 4 then sz = b[4]
+                if b[2] < x.glows.Count() then x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: b[3], sz: sz })
             else if x.tiles.Count() > 0
-                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: k mod 8 })
+                x.bulbs.Push({ x: b[0], y: b[1], c: b[2], g: k mod 8, sz: 1.0 })
             end if
             k = k + 1
         end for
@@ -183,12 +193,21 @@ sub ChristmasWires(s as object, screen as object)
     end for
 end sub
 
-' Drawn over the reef pieces and behind the fish that swim in front of them.
+' What shines: the fire, the lit bulbs and the star. Drawn after the night's dark and the
+' pieces that stand before the reef, and behind the fish that swim in front of them, so the
+' lights are as bright at night as by day and a fish is never between the tree and its lights.
 sub ChristmasDraw(s as object, screen as object, t as float)
     x = s.xmas
     if x = invalid then return
     c = s.cfg.christmas
     cam = s.camX
+    ' Night Lite: the fire is out and its logs glow, and the lights are turned low.
+    if s.nightLite
+        ChristmasGlows(s, screen, 0.5)
+        ChristmasStar(s, screen, t * 0.5, 0.36)
+        ChristmasEmbers(s, screen, t)
+        return
+    end if
     ChristmasFire(s, screen, t, 255)
     ChristmasGlows(s, screen, 1.0)
     ChristmasStar(s, screen, t, 1.0)
@@ -204,25 +223,11 @@ sub ChristmasDraw(s as object, screen as object, t as float)
                     if b.age < 0.25 then a = Int(235 * b.age / 0.25)
                     if b.y < top + 50 then a = Int(a * (b.y - top) / 50)
                     k = b.sc * (1 + 0.12 * b.age)
-                    if a > 0 then screen.DrawScaledObject(sx - 20 * k, b.y - 20 * k, k, k, x.bubbleCells[b.cell], &hFFFFFF00 + a)
+                    if a > 0 then screen.DrawScaledObject(sx - 20 * k, b.y - 20 * k, k, k, x.bubbleCells[b.cell], s.dimRgb + a)
                 end if
             end if
         end for
     end if
-end sub
-
-' Drawn after the night tint, so the fire and the bulbs shine in a dark tank.
-sub ChristmasNight(s as object, screen as object, t as float)
-    if s.xmas = invalid or s.night < 0.04 then return
-    if s.nightLite
-        ChristmasGlows(s, screen, 0.5)
-        ChristmasStar(s, screen, t * 0.5, 0.36)
-        ChristmasEmbers(s, screen, t)
-        return
-    end if
-    ChristmasFire(s, screen, t, Int(255 * s.night))
-    ChristmasGlows(s, screen, 0.35 + 0.65 * s.night)
-    ChristmasStar(s, screen, t, 0.35 + 0.65 * s.night)
 end sub
 
 ' The topper's glow: a slow uneven pulse with a bright glint at its peak.
@@ -274,7 +279,7 @@ sub ChristmasGlows(s as object, screen as object, gain as float)
             v = lv[b.g]
             a = Int(235 * v * gain)
             if a > 14
-                k = 0.62 + 0.42 * v
+                k = (0.62 + 0.42 * v) * b.sz
                 screen.DrawScaledObject(sx - 32 * k, b.y - 32 * k, k, k, x.glows[b.c], &hFFFFFF00 + a)
             end if
         end if

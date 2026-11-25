@@ -120,6 +120,8 @@ def add_christmas(scene, contents):
 
     bulbs = [bulb for bulb in lights["bulbs"] if not hidden(bulb[0], bulb[1])]
     bulbs += [[round(spot["x"] + x, 1), round(spot["y"] + y, 1), color, group] for x, y, color, group in tree["bulbs"]]
+    # The fireplace's own: the string on its mantel and the small lights in its wreath.
+    bulbs += [[round(hearth["x"] + x, 1), round(hearth["y"] + y, 1), color, group, size] for x, y, color, group, size in fireplace.get("bulbs", [])]
     scene["christmas"] = {
         "fire": fire, "hearth": placed(fireplace["hearth"]), "chimney": placed(fireplace["chimney"]),
         "surface": layout["surface"], "tiles": lights["tiles"], "bulbs": bulbs,

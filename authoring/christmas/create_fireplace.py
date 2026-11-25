@@ -3,7 +3,9 @@
     blender -b --factory-startup --python-exit-code 1 -P authoring/christmas/create_fireplace.py
 
 Writes fireplace.blend (editable), fireplace.png, fire_frames.png and fireplace.json, which
-records where the chimney mouth and the flame sheet sit in the sprite.
+records where the chimney mouth and the flame sheet sit in the sprite, and where each of its
+lights is: the coloured bulbs strung along the mantel's garland and the small white and yellow
+ones in the wreath, as [x, y, colour, group, size] for the app to lay a twinkling glow over.
 """
 import json
 import math
@@ -377,6 +379,28 @@ for i, point in enumerate(garland_path[6:-6:7]):
 bow((-1.36, GY - 0.07, MANTEL_Z + 0.10), 1.15)
 bow((1.36, GY - 0.07, MANTEL_Z + 0.10), 1.15)
 
+# Lights. Each is a small lit bulb in the picture, and its place is written out so that the app
+# can lay a glow over it. A glow's colour is a cell of glows.png: red, green, blue, amber,
+# pink, (firelight,) warm white.
+BULB_COLORS = {0: (1.0, 0.10, 0.06), 1: (0.08, 1.0, 0.22), 2: (0.12, 0.38, 1.0), 3: (1.0, 0.62, 0.08), 4: (1.0, 0.16, 0.55), 6: (1.0, 0.88, 0.66)}
+BULBS = {index: rig.material(f"Bulb {index}", color, 0.3, Emission_Color=color, Emission_Strength=5.0) for index, color in BULB_COLORS.items()}
+LIGHTS = []         # (where, colour, size of its glow)
+light_rng = random.Random(77)      # its own, so the rest of the fireplace is built as before
+
+
+def light(location, color, radius, glow):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=location, segments=14, ring_count=8)
+    bulb = keep(bpy.context.object)
+    bulb.scale = (1.0, 1.0, 1.3)
+    bulb.data.materials.append(BULBS[color])
+    bpy.ops.object.shade_smooth()
+    LIGHTS.append((Vector(location), color, glow))
+
+
+# A string of coloured bulbs along the garland, between its baubles.
+for i, point in enumerate(garland_path[2:-2:7]):
+    light(point + Vector((light_rng.uniform(-0.02, 0.02), -0.10, light_rng.uniform(0.0, 0.05))), i % 5, 0.027, 0.46)
+
 # Wreath on the stack.
 WREATH_Z, WREATH_R, WREATH_Y = STACK_Z + 0.62, 0.235, -STACK_D / 2 - 0.075
 ring = [Vector((WREATH_R * math.cos(TAU * i / 48), WREATH_Y, WREATH_Z + WREATH_R * math.sin(TAU * i / 48))) for i in range(49)]
@@ -386,6 +410,12 @@ for i in range(9):
     if abs(a - 1.5 * math.pi) > 0.5:
         bauble((WREATH_R * math.cos(a), WREATH_Y - 0.07, WREATH_Z + WREATH_R * math.sin(a)), RUBY if i % 3 else GOLD, 0.028)
 bow((0, WREATH_Y - 0.08, WREATH_Z - WREATH_R), 1.0)
+# Fairy lights in the wreath: small ones, warm white and yellow by turns, clear of the bow.
+for i in range(12):
+    a = TAU * (i + 0.5) / 12
+    if abs(a - 1.5 * math.pi) > 0.4:
+        r = WREATH_R + light_rng.uniform(-0.04, 0.04)
+        light((r * math.cos(a), WREATH_Y - 0.085, WREATH_Z + r * math.sin(a)), 6 if i % 2 else 3, 0.014, 0.2)
 
 sand = keep(rig.sand_drift(scene, -1.39, 1.37, -0.62, 0.45))
 
@@ -506,8 +536,13 @@ fw, fh = rig.pack_grid(paths, rig.HERE / "fire_frames.png", COLS)
 mouth = rig.project(scene, cam, turn @ MOUTH)
 hearth = rig.project(scene, cam, turn @ Vector((0, FIRE_Y, HEARTH + 0.35)))
 foot = rig.project(scene, cam, (0, 0, 0))
+bulbs = []
+for k, (where, color, glow) in enumerate(LIGHTS):
+    x, y = rig.project(scene, cam, turn @ where)[:2]
+    bulbs.append([round(x, 1), round(y, 1), color, k % 8, glow])
 (rig.HERE / "fireplace.json").write_text(json.dumps({
     "size": [w, h], "foot": foot, "chimney": mouth, "hearth": hearth,
     "fire": {"x": box[0], "y": box[1], "w": fw, "h": fh, "frames": FRAMES, "cols": COLS},
-}, indent=1) + "\n")
+    "bulbs": bulbs,
+}) + "\n")
 print("FIREPLACE", w, h, "flame frame", fw, fh, "mouth", mouth)

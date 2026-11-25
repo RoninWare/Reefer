@@ -139,11 +139,12 @@ sub ShrimpPlace(sh as object)
     sh.aim = ShrimpWrap(heading)
 end sub
 
-' Drawn with the other critters: over the reef pieces, behind the fish that swim in front.
+' Drawn with the other critters: over the reef pieces, behind the fish that swim in front,
+' and after the night's dark, in its tint (s.dim).
 sub ShrimpDraw(s as object, screen as object, t as float)
     e = s.shrimp
     if e = invalid then return
-    ShrimpDrawFrom(s, screen, e, e.cells, e.kx, e.ky, "scr", &hFFFFFFFF)
+    ShrimpDrawFrom(s, screen, e, e.cells, e.kx, e.ky, "scr", s.dim)
 end sub
 
 ' Loads the glow sheet, after everything else in the tank.
@@ -163,7 +164,7 @@ sub ShrimpGlowInit(s as object)
     e.gkx = pg.kx : e.gky = pg.ky
 end sub
 
-' After the night's dark has been laid over the tank: each shrimp's glow, pulsing a little.
+' Over each shrimp, at night: its glow, pulsing a little.
 sub ShrimpGlow(s as object, screen as object, t as float)
     e = s.shrimp
     if e = invalid then return
@@ -171,7 +172,7 @@ sub ShrimpGlow(s as object, screen as object, t as float)
     level = s.night
     if s.nightLite then level = 1.0
     if level < 0.04 then return
-    a = Int(230 * level * (0.8 + 0.2 * Sin(t * 2.3)))
+    a = Int(125 * level * (0.8 + 0.2 * Sin(t * 2.3)))
     ShrimpDrawFrom(s, screen, e, e.glow, e.gkx, e.gky, "gscr", &hFFFFFF00 + a)
 end sub
 

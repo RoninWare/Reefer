@@ -1,7 +1,7 @@
 """Build the engraved quartz floor stone in Blender.
 
-    blender -b --factory-startup --python-exit-code 1 -P authoring/create_quartz.py -- market/art/holiday_quartz.blend "Holiday Reef"
-    blender -b market/art/holiday_quartz.blend -P authoring/export_sprite.py
+    blender -b --factory-startup --python-exit-code 1 -P authoring/create_quartz.py -- market/art/seasons_quartz.blend "Seasons Reef"
+    blender -b market/art/seasons_quartz.blend -P authoring/export_sprite.py
 
 The stone is the same for every inscription. With no arguments it is Rellie Reef's own
 (authoring/rellie_quartz.blend); the two arguments are where to save another and what it reads.
